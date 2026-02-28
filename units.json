@@ -1,0 +1,90 @@
+{
+  "Su-27S": {
+    "display_name":  "Su-27S Flanker-B",
+    "type":          "fighter",
+    "speed_kmh":     2500,
+    "ceiling_ft":    59000,
+    "ecm_rating":    0.25,
+    "radar": {
+      "type":        "N001 Mech",
+      "range_km":    240,
+      "modes":       ["air", "surface"]
+    },
+    "default_loadout": {
+      "R-27R":  4,
+      "R-27T":  2,
+      "R-73":   4,
+      "GSh-30-1": 1
+    }
+  },
+  "Su-35S": {
+    "display_name":  "Su-35S Flanker-E",
+    "type":          "fighter",
+    "speed_kmh":     2500,
+    "ceiling_ft":    59000,
+    "ecm_rating":    0.30,
+    "radar": {
+      "type":        "Irbis-E",
+      "range_km":    300,
+      "modes":       ["air", "surface"]
+    },
+    "default_loadout": {
+      "R-77":   4,
+      "R-27T":  2,
+      "R-73":   6,
+      "GSh-30-1": 1
+    }
+  },
+  "MiG-29A": {
+    "display_name":  "MiG-29A Fulcrum-A",
+    "type":          "fighter",
+    "speed_kmh":     2400,
+    "ceiling_ft":    57000,
+    "ecm_rating":    0.20,
+    "radar": {
+      "type":        "N019 Sapfir",
+      "range_km":    180,
+      "modes":       ["air"]
+    },
+    "default_loadout": {
+      "R-27R":  2,
+      "R-27T":  2,
+      "R-73":   4,
+      "GSh-30-1": 1
+    }
+  },
+  "F-16A": {
+    "display_name":  "F-16A Fighting Falcon",
+    "type":          "fighter",
+    "speed_kmh":     2150,
+    "ceiling_ft":    50000,
+    "ecm_rating":    0.15,
+    "radar": {
+      "type":        "AN/APG-66",
+      "range_km":    120,
+      "modes":       ["air", "surface"]
+    },
+    "default_loadout": {
+      "AIM-120C": 4,
+      "AIM-9X":   2,
+      "M61A1":    1
+    }
+  },
+  "F-16C": {
+    "display_name":  "F-16C Fighting Falcon",
+    "type":          "fighter",
+    "speed_kmh":     2150,
+    "ceiling_ft":    50000,
+    "ecm_rating":    0.18,
+    "radar": {
+      "type":        "AN/APG-68",
+      "range_km":    148,
+      "modes":       ["air", "surface"]
+    },
+    "default_loadout": {
+      "AIM-120C": 6,
+      "AIM-9X":   2,
+      "M61A1":    1
+    }
+  }
+}

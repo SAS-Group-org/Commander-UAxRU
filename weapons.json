@@ -1,0 +1,82 @@
+{
+  "R-27R": {
+    "display_name": "R-27R Alamo-A",
+    "seeker":       "SARH",
+    "range_km":     73,
+    "min_range_km": 3,
+    "speed_kmh":    3000,
+    "base_pk":      0.82,
+    "is_gun":       false,
+    "description":  "Semi-active radar homing BVR missile"
+  },
+  "R-27T": {
+    "display_name": "R-27T Alamo-B",
+    "seeker":       "IR",
+    "range_km":     70,
+    "min_range_km": 3,
+    "speed_kmh":    3000,
+    "base_pk":      0.80,
+    "is_gun":       false,
+    "description":  "Infrared-homing variant of the Alamo"
+  },
+  "R-73": {
+    "display_name": "R-73 Archer",
+    "seeker":       "IR",
+    "range_km":     30,
+    "min_range_km": 0.5,
+    "speed_kmh":    2500,
+    "base_pk":      0.88,
+    "is_gun":       false,
+    "description":  "High-agility short-range IR dogfight missile"
+  },
+  "R-77": {
+    "display_name": "R-77 Adder",
+    "seeker":       "ARH",
+    "range_km":     110,
+    "min_range_km": 3,
+    "speed_kmh":    3600,
+    "base_pk":      0.84,
+    "is_gun":       false,
+    "description":  "Active radar homing BVR missile (fire and forget)"
+  },
+  "AIM-120C": {
+    "display_name": "AIM-120C AMRAAM",
+    "seeker":       "ARH",
+    "range_km":     105,
+    "min_range_km": 3,
+    "speed_kmh":    3600,
+    "base_pk":      0.85,
+    "is_gun":       false,
+    "description":  "NATO standard active radar BVR missile"
+  },
+  "AIM-9X": {
+    "display_name": "AIM-9X Sidewinder",
+    "seeker":       "IR",
+    "range_km":     35,
+    "min_range_km": 0.5,
+    "speed_kmh":    2700,
+    "base_pk":      0.90,
+    "is_gun":       false,
+    "description":  "High off-boresight IR dogfight missile"
+  },
+  "GSh-30-1": {
+    "display_name": "GSh-30-1 Cannon",
+    "seeker":       "CANNON",
+    "range_km":     0.8,
+    "min_range_km": 0.1,
+    "speed_kmh":    0,
+    "base_pk":      0.65,
+    "is_gun":       true,
+    "description":  "30mm single-barrel aircraft cannon"
+  },
+  "M61A1": {
+    "display_name": "M61A1 Vulcan",
+    "seeker":       "CANNON",
+    "range_km":     0.8,
+    "min_range_km": 0.1,
+    "speed_kmh":    0,
+    "base_pk":      0.65,
+    "is_gun":       true,
+    "description":  "20mm six-barrel rotary cannon"
+  }
+}

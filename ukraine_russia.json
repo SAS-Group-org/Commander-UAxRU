@@ -1,0 +1,78 @@
+{
+  "name":        "Ukraine Air Superiority — Spring 2024",
+  "description": "Ukrainian Su-27s contest airspace against advancing Russian fighters over central Ukraine.",
+  "start_lat":   49.0,
+  "start_lon":   32.0,
+  "start_zoom":  7,
+
+  "units": [
+    {
+      "id":         "blue_1",
+      "platform":   "Su-27S",
+      "callsign":   "GHOST 1",
+      "side":       "Blue",
+      "lat":        49.80,
+      "lon":        28.50,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "R-27R":    4,
+        "R-27T":    2,
+        "R-73":     4,
+        "GSh-30-1": 1
+      }
+    },
+    {
+      "id":         "blue_2",
+      "platform":   "Su-27S",
+      "callsign":   "GHOST 2",
+      "side":       "Blue",
+      "lat":        50.20,
+      "lon":        28.80,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "R-27R":    4,
+        "R-27T":    2,
+        "R-73":     4,
+        "GSh-30-1": 1
+      }
+    },
+    {
+      "id":         "red_1",
+      "platform":   "Su-35S",
+      "callsign":   "BANDIT 1",
+      "side":       "Red",
+      "lat":        49.50,
+      "lon":        36.20,
+      "image_path": "assets/red_jet.png",
+      "loadout": {
+        "R-77":     4,
+        "R-27T":    2,
+        "R-73":     6,
+        "GSh-30-1": 1
+      },
+      "waypoints": [
+        [49.80, 32.50],
+        [50.00, 30.00]
+      ]
+    },
+    {
+      "id":         "red_2",
+      "platform":   "MiG-29A",
+      "callsign":   "BANDIT 2",
+      "side":       "Red",
+      "lat":        48.80,
+      "lon":        36.80,
+      "image_path": "assets/red_jet.png",
+      "loadout": {
+        "R-27R":    2,
+        "R-27T":    2,
+        "R-73":     4,
+        "GSh-30-1": 1
+      },
+      "waypoints": [
+        [49.00, 33.00],
+        [49.20, 30.50]
+      ]
+    }
+  ]
+}
