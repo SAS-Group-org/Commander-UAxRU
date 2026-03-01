@@ -44,15 +44,17 @@ class Renderer:
                    missiles: list[Missile],
                    win_w: int, map_h: int,
                    placing_type: str | None = None,
-                   mouse_pos: tuple[int, int] | None = None) -> None:
+                   placing_remaining: int = 0,
+                   mouse_pos: tuple[int, int] | None = None,
+                   show_all_enemies: bool = False) -> None:
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
         self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h)
         self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h)
         self._draw_missiles(cam_px, cam_py, zoom, missiles, win_w, map_h)
-        self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h)
+        self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         if placing_type and mouse_pos and mouse_pos[1] < map_h:
-            self._draw_placement_cursor(mouse_pos, placing_type)
+            self._draw_placement_cursor(mouse_pos, placing_type, placing_remaining)
 
     # ── Map tiles ─────────────────────────────────────────────────────────────
 
@@ -84,6 +86,8 @@ class Renderer:
         for unit in units:
             if not unit.alive:
                 continue
+            if unit.side == "Red":
+                continue          # Red radar coverage is hidden from the player
             sx, sy = world_to_screen(unit.lat, unit.lon,
                                      cam_px, cam_py, zoom, win_w, map_h)
             lat2 = unit.lat + (unit.platform.radar_range_km / 111.32)
@@ -138,11 +142,11 @@ class Renderer:
 
     # ── Units ─────────────────────────────────────────────────────────────────
 
-    def _draw_units(self, cam_px, cam_py, zoom, units, win_w, map_h) -> None:
+    def _draw_units(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
             if not unit.alive:
                 continue
-            if unit.side == "Red" and not unit.is_detected:
+            if unit.side == "Red" and not unit.is_detected and not show_all_enemies:
                 continue
 
             sx, sy = world_to_screen(unit.lat, unit.lon,
@@ -167,14 +171,28 @@ class Renderer:
                 rect    = rotated.get_rect(center=(int(sx), int(sy)))
                 self.surface.blit(rotated, rect.topleft)
             else:
-                self._draw_jet_polygon(sx, sy, unit.heading, color)
+                utype = unit.platform.unit_type
+                if utype == "tank":
+                    self._draw_tank_symbol(sx, sy, unit.heading, color)
+                elif utype == "ifv":
+                    self._draw_ifv_symbol(sx, sy, color)
+                elif utype == "apc":
+                    self._draw_apc_symbol(sx, sy, color)
+                elif utype == "recon":
+                    self._draw_recon_symbol(sx, sy, color)
+                elif utype == "tank_destroyer":
+                    self._draw_td_symbol(sx, sy, unit.heading, color)
+                else:
+                    self._draw_jet_polygon(sx, sy, unit.heading, color)
 
+            # Updated label colors to black (0, 0, 0)
             det_tag = " ◆" if unit.is_detected and unit.side == "Blue" else ""
             label   = self._font_sm.render(
-                f"{unit.callsign}{det_tag}", True, (220, 220, 220))
+                f"{unit.callsign}{det_tag}", True, (0, 0, 0))
             self.surface.blit(label, (int(sx) + 13, int(sy) - 10))
+            
             type_label = self._font_sm.render(
-                unit.platform.display_name, True, (150, 170, 170))
+                unit.platform.display_name, True, (0, 0, 0))
             self.surface.blit(type_label, (int(sx) + 13, int(sy) + 2))
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -204,8 +222,59 @@ class Renderer:
                     sy + px * sin_h + py * cos_h) for px, py in pts]
         pygame.draw.polygon(self.surface, color, rotated, 2)
 
+    # ── Ground unit symbols (NATO-style) ──────────────────────────────────
+
+    def _draw_tank_symbol(self, sx, sy, heading, color) -> None:
+        """Filled rectangle (MBT) with a short gun barrel."""
+        hw, hh = 10, 7
+        body = pygame.Surface((hw*2, hh*2), pygame.SRCALPHA)
+        pygame.draw.rect(body, color, (0, 0, hw*2, hh*2))
+        pygame.draw.rect(body, (0,0,0), (0, 0, hw*2, hh*2), 1)
+        rad = math.radians(heading)
+        rot = pygame.transform.rotate(body, -heading)
+        rect = rot.get_rect(center=(int(sx), int(sy)))
+        self.surface.blit(rot, rect.topleft)
+        # barrel
+        blen = 14
+        ex = sx + blen * math.sin(rad)
+        ey = sy - blen * math.cos(rad)
+        pygame.draw.line(self.surface, color, (int(sx), int(sy)), (int(ex), int(ey)), 2)
+
+    def _draw_ifv_symbol(self, sx, sy, color) -> None:
+        """Rectangle with a filled circle inside (IFV)."""
+        hw, hh = 9, 6
+        pygame.draw.rect(self.surface, color,
+                         (int(sx)-hw, int(sy)-hh, hw*2, hh*2), 2)
+        pygame.draw.circle(self.surface, color, (int(sx), int(sy)), 4)
+
+    def _draw_apc_symbol(self, sx, sy, color) -> None:
+        """Open rectangle (APC)."""
+        hw, hh = 9, 6
+        pygame.draw.rect(self.surface, color,
+                         (int(sx)-hw, int(sy)-hh, hw*2, hh*2), 2)
+
+    def _draw_recon_symbol(self, sx, sy, color) -> None:
+        """Diamond (recon)."""
+        pts = [(sx, sy-10), (sx+9, sy), (sx, sy+10), (sx-9, sy)]
+        pygame.draw.polygon(self.surface, color, pts, 2)
+
+    def _draw_td_symbol(self, sx, sy, heading, color) -> None:
+        """Forward-pointing triangle + barrel (tank destroyer)."""
+        rad = math.radians(heading)
+        pts = [
+            (sx + 12*math.sin(rad),         sy - 12*math.cos(rad)),
+            (sx + 8*math.sin(rad+2.3),       sy -  8*math.cos(rad+2.3)),
+            (sx + 8*math.sin(rad-2.3),       sy -  8*math.cos(rad-2.3)),
+        ]
+        pygame.draw.polygon(self.surface, color, pts, 2)
+        blen = 14
+        ex = sx + blen*math.sin(rad)
+        ey = sy - blen*math.cos(rad)
+        pygame.draw.line(self.surface, color, (int(sx),int(sy)), (int(ex),int(ey)), 2)
+
     def _draw_placement_cursor(self, mouse_pos: tuple[int, int],
-                                placing_type: str) -> None:
+                                placing_type: str,
+                                placing_remaining: int = 0) -> None:
         """Crosshair + label under the mouse cursor during unit placement."""
         mx, my = mouse_pos
         size   = 16
@@ -213,5 +282,7 @@ class Renderer:
         pygame.draw.line(self.surface, col, (mx - size, my), (mx + size, my), 2)
         pygame.draw.line(self.surface, col, (mx, my - size), (mx, my + size), 2)
         pygame.draw.circle(self.surface, col, (mx, my), size, 1)
-        label = self._font_sm.render(f"Place: {placing_type}", True, col)
+        rem_txt = f" ({placing_remaining} left)" if placing_remaining > 1 else ""
+        label = self._font_sm.render(
+            f"Place: {placing_type}{rem_txt}", True, col)
         self.surface.blit(label, (mx + size + 4, my - 8))

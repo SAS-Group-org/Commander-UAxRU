@@ -148,6 +148,16 @@ class Unit:
         self.flash_frames = 0             # non-zero while drawing hit flash
         self.selected_weapon: Optional[str] = None  # preferred weapon key for firing
 
+        # Home position — Red units return here after completing their patrol
+        self.home_lat: float = lat
+        self.home_lon: float = lon
+
+        # AI state (Red units only)
+        # "patrol"    → following assigned waypoints
+        # "returning" → heading back to home_lat/home_lon after last waypoint
+        self.ai_state: str   = "patrol"
+        self.ai_fire_cooldown: float = 0.0   # sim-seconds until next AI shot
+
         # Image surface loaded lazily by the renderer
         self._surface: Optional[pygame.Surface] = None
 
@@ -261,7 +271,16 @@ _WEAPONS_DATA = {
     "GSh-6-23":{"display_name": "GSh-6-23 (23mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.62, "is_gun": True,  "description": "6-barrel 23mm rotary cannon (Su-24)"},
     "M61A1":   {"display_name": "M61A1 Vulcan (20mm)", "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.65, "is_gun": True,  "description": "20mm six-barrel rotary cannon"},
     "DEFA-554":{"display_name": "DEFA 554 (30mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.64, "is_gun": True,  "description": "30mm revolver cannon (Mirage 2000)"},
-    "Yak-B":   {"display_name": "Yak-B (12.7mm)",     "seeker": "CANNON", "range_km": 0.6, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.55, "is_gun": True,  "description": "12.7mm four-barrel rotary (Mi-24 chin gun)"},
+    "Yak-B":   {"display_name": "Yak-B (12.7mm)",     "seeker": "CANNON", "range_km": 0.6, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.55, "is_gun": True,  "description": "12.7mm four-barrel rotary (Mi-24 chin gun)"},    # ── Ground weapons ───────────────────────────────────────────────────────
+    "GUN_125":     {"display_name": "125mm APFSDS",         "seeker": "CANNON", "range_km": 4.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.80, "is_gun": True,  "description": "125mm smoothbore tank gun (T-64/72/80)"},
+    "GUN_120NATO": {"display_name": "120mm NATO APFSDS",    "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "description": "120mm NATO smoothbore gun (Leopard 2, M1 Abrams)"},
+    "GUN_120UK":   {"display_name": "120mm L30A1 (rifled)", "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "description": "120mm rifled gun (Challenger 2)"},
+    "GUN_105":     {"display_name": "105mm APFSDS",         "seeker": "CANNON", "range_km": 3.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.76, "is_gun": True,  "description": "105mm L7/M68 rifled gun (Leopard 1, M113-derived)"},
+    "AUTOCANNON_30": {"display_name": "30mm Autocannon",   "seeker": "CANNON", "range_km": 2.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.70, "is_gun": True,  "description": "30mm 2A42/Mk 44 autocannon (BMP-2, Marder, CV90)"},
+    "AUTOCANNON_25": {"display_name": "25mm M242 Bushmaster","seeker": "CANNON","range_km": 2.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.68, "is_gun": True,  "description": "25mm chain gun (Bradley M2/M3)"},
+    "ATGM_Konkurs": {"display_name": "9M113 Konkurs ATGM", "seeker": "SACLOS", "range_km": 4.0, "min_range_km": 0.5, "speed_kmh": 200, "base_pk": 0.78, "is_gun": False, "description": "Wire-guided ATGM (BMP-2, 9P148)"},
+    "ATGM_TOW":    {"display_name": "BGM-71 TOW ATGM",     "seeker": "SACLOS", "range_km": 3.7, "min_range_km": 0.3, "speed_kmh": 300, "base_pk": 0.80, "is_gun": False, "description": "Wire-guided TOW missile (Bradley, M113)"},
+    "ATGM_Stugna": {"display_name": "Stugna-P ATGM",       "seeker": "LASER",  "range_km": 5.5, "min_range_km": 0.1, "speed_kmh": 400, "base_pk": 0.82, "is_gun": False, "description": "Ukrainian laser-guided ATGM (AMX-10 RC, BMP-1U)"},
 }
 
 _PLATFORMS_DATA = {
@@ -405,6 +424,332 @@ _PLATFORMS_DATA = {
         "available_weapons": ["R-77","R-27R","R-27T","R-73","GSh-30-1"],
         "fleet_count": 0, "player_side": "Red",
     },
+    # ══ RUSSIA GROUND FORCES (Red) ═══════════════════════════════════════════
+    # ── MBTs ─────────────────────────────────────────────────────────────────
+    "T-90R": {
+        "display_name": "T-90A / T-90M", "type": "tank",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.10,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_125", "ATGM_Konkurs"],
+        "fleet_count": 30, "player_side": "Red",
+    },
+    "T-72R": {
+        "display_name": "T-72B1 / T-72B3", "type": "tank",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.06,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_125", "ATGM_Konkurs"],
+        "fleet_count": 520, "player_side": "Red",
+    },
+    "T-80R": {
+        "display_name": "T-80BV / T-80BVM / T-80U", "type": "tank",
+        "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.08,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 38, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_125", "ATGM_Konkurs"],
+        "fleet_count": 88, "player_side": "Red",
+    },
+    "T-64R": {
+        "display_name": "T-64BV (captured)", "type": "tank",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.06,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 38, "ATGM_Stugna": 4},
+        "available_weapons": ["GUN_125", "ATGM_Stugna"],
+        "fleet_count": 220, "player_side": "Red",
+    },
+    "T-62R": {
+        "display_name": "T-62M / T-62MV", "type": "tank",
+        "speed_kmh": 50, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 40},
+        "available_weapons": ["GUN_105"],
+        "fleet_count": 50, "player_side": "Red",
+    },
+    "T-55R": {
+        "display_name": "T-55 M-55S (Russian)", "type": "tank",
+        "speed_kmh": 50, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 43},
+        "available_weapons": ["GUN_105"],
+        "fleet_count": 26, "player_side": "Red",
+    },
+    # ── IFVs ──────────────────────────────────────────────────────────────────
+    "BMP-2R": {
+        "display_name": "BMP-2 (Russian)", "type": "ifv",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 500, "ATGM_Konkurs": 4},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 150, "player_side": "Red",
+    },
+    "BMP-3R": {
+        "display_name": "BMP-3", "type": "ifv",
+        "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 40, "AUTOCANNON_30": 500, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_105", "AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 45, "player_side": "Red",
+    },
+    "BMP-1R": {
+        "display_name": "BMP-1 (Russian)", "type": "ifv",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 3},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 250, "player_side": "Red",
+    },
+    "BMD-2R": {
+        "display_name": "BMD-2 (Airborne)", "type": "ifv",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 3},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 20, "player_side": "Red",
+    },
+    # ── APCs ──────────────────────────────────────────────────────────────────
+    "BTR-80R": {
+        "display_name": "BTR-80 / BTR-82A (Russian)", "type": "apc",
+        "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300},
+        "available_weapons": ["AUTOCANNON_30"],
+        "fleet_count": 302, "player_side": "Red",
+    },
+    "BTR-70R": {
+        "display_name": "BTR-70 / BTR-70M", "type": "apc",
+        "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 300},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 217, "player_side": "Red",
+    },
+    "MTLBR": {
+        "display_name": "MT-LB / MT-LBu (Russian)", "type": "apc",
+        "speed_kmh": 62, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 200},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 125, "player_side": "Red",
+    },
+    # ── Recon ─────────────────────────────────────────────────────────────────
+    "BRDM2R": {
+        "display_name": "BRDM-2 / BRDM-2T (Russian)", "type": "recon",
+        "speed_kmh": 95, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical + IR", "range_km": 6, "modes": ["surface"]},
+        "default_loadout": {"ATGM_Konkurs": 6},
+        "available_weapons": ["ATGM_Konkurs"],
+        "fleet_count": 120, "player_side": "Red",
+    },
+    # ── Tank Destroyers ───────────────────────────────────────────────────────
+    "9P148R": {
+        "display_name": "9P148 Konkurs ATGM (Russian)", "type": "tank_destroyer",
+        "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]},
+        "default_loadout": {"ATGM_Konkurs": 20},
+        "available_weapons": ["ATGM_Konkurs"],
+        "fleet_count": 7, "player_side": "Red",
+    },
+
+    # ══ UKRAINE GROUND FORCES (Blue) ══════════════════════════════════════════
+    # ── Main Battle Tanks ─────────────────────────────────────────────────────
+    "T-72":         {
+        "display_name": "T-72 (various)", "type": "tank",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_125", "ATGM_Konkurs"],
+        "fleet_count": 520, "player_side": "Blue",
+    },
+    "T-64":         {
+        "display_name": "T-64BV / Bulat", "type": "tank",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.08,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 38, "ATGM_Stugna": 4},
+        "available_weapons": ["GUN_125", "ATGM_Stugna"],
+        "fleet_count": 220, "player_side": "Blue",
+    },
+    "T-80":         {
+        "display_name": "T-80BV / BVM", "type": "tank",
+        "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.08,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"GUN_125": 38, "ATGM_Konkurs": 4},
+        "available_weapons": ["GUN_125", "ATGM_Konkurs"],
+        "fleet_count": 88, "player_side": "Blue",
+    },
+    "Leopard1":     {
+        "display_name": "Leopard 1A5", "type": "tank",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "Thermal sight", "range_km": 6, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 55, "ATGM_Konkurs": 2},
+        "available_weapons": ["GUN_105", "ATGM_Konkurs"],
+        "fleet_count": 103, "player_side": "Blue",
+    },
+    "Leopard2":     {
+        "display_name": "Leopard 2A4/A6 / Strv 122", "type": "tank",
+        "speed_kmh": 72, "ceiling_ft": 0, "ecm_rating": 0.10,
+        "radar": {"type": "Hunter-killer sight", "range_km": 7, "modes": ["surface"]},
+        "default_loadout": {"GUN_120NATO": 42, "ATGM_TOW": 2},
+        "available_weapons": ["GUN_120NATO", "ATGM_TOW"],
+        "fleet_count": 60, "player_side": "Blue",
+    },
+    "Challenger2":  {
+        "display_name": "Challenger 2", "type": "tank",
+        "speed_kmh": 59, "ceiling_ft": 0, "ecm_rating": 0.10,
+        "radar": {"type": "TOGS II thermal", "range_km": 7, "modes": ["surface"]},
+        "default_loadout": {"GUN_120UK": 47, "ATGM_TOW": 2},
+        "available_weapons": ["GUN_120UK", "ATGM_TOW"],
+        "fleet_count": 13, "player_side": "Blue",
+    },
+    "M1Abrams":     {
+        "display_name": "M1A1 Abrams", "type": "tank",
+        "speed_kmh": 68, "ceiling_ft": 0, "ecm_rating": 0.10,
+        "radar": {"type": "Hunter-killer sight", "range_km": 7, "modes": ["surface"]},
+        "default_loadout": {"GUN_120NATO": 40, "ATGM_TOW": 2},
+        "available_weapons": ["GUN_120NATO", "ATGM_TOW"],
+        "fleet_count": 25, "player_side": "Blue",
+    },
+    "T-55":         {
+        "display_name": "T-55 M-55S", "type": "tank",
+        "speed_kmh": 50, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 43},
+        "available_weapons": ["GUN_105"],
+        "fleet_count": 26, "player_side": "Blue",
+    },
+    # ── Infantry Fighting Vehicles ────────────────────────────────────────────
+    "BMP-1":        {
+        "display_name": "BMP-1 (various)", "type": "ifv",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 3},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 250, "player_side": "Blue",
+    },
+    "BMP-2":        {
+        "display_name": "BMP-2", "type": "ifv",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 500, "ATGM_Konkurs": 4},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 150, "player_side": "Blue",
+    },
+    "Bradley":      {
+        "display_name": "M2 Bradley", "type": "ifv",
+        "speed_kmh": 66, "ceiling_ft": 0, "ecm_rating": 0.06,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 900, "ATGM_TOW": 7},
+        "available_weapons": ["AUTOCANNON_25", "ATGM_TOW"],
+        "fleet_count": 350, "player_side": "Blue",
+    },
+    "Marder":       {
+        "display_name": "Marder 1A3", "type": "ifv",
+        "speed_kmh": 75, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 1000, "ATGM_TOW": 4},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_TOW"],
+        "fleet_count": 140, "player_side": "Blue",
+    },
+    "CV90":         {
+        "display_name": "CV9040", "type": "ifv",
+        "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.06,
+        "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 1000, "ATGM_Konkurs": 4},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 48, "player_side": "Blue",
+    },
+    "YPR-765":      {
+        "display_name": "YPR-765 PRAT", "type": "ifv",
+        "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 400, "ATGM_TOW": 2},
+        "available_weapons": ["AUTOCANNON_25", "ATGM_TOW"],
+        "fleet_count": 353, "player_side": "Blue",
+    },
+    # ── Armoured Personnel Carriers ───────────────────────────────────────────
+    "M113":         {
+        "display_name": "M113 APC (various)", "type": "apc",
+        "speed_kmh": 64, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 200},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 510, "player_side": "Blue",
+    },
+    "Stryker":      {
+        "display_name": "Stryker M1126", "type": "apc",
+        "speed_kmh": 96, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 200, "ATGM_TOW": 2},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_TOW"],
+        "fleet_count": 400, "player_side": "Blue",
+    },
+    "BTR-80":       {
+        "display_name": "BTR-80 / BTR-82A", "type": "apc",
+        "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300},
+        "available_weapons": ["AUTOCANNON_30"],
+        "fleet_count": 302, "player_side": "Blue",
+    },
+    "BTR-70":       {
+        "display_name": "BTR-70 / BTR-70M", "type": "apc",
+        "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 300},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 217, "player_side": "Blue",
+    },
+    "VAB":          {
+        "display_name": "VAB APC", "type": "apc",
+        "speed_kmh": 92, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 200},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 250, "player_side": "Blue",
+    },
+    "M1117":        {
+        "display_name": "M1117 Guardian ASV", "type": "apc",
+        "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_25": 200},
+        "available_weapons": ["AUTOCANNON_25"],
+        "fleet_count": 400, "player_side": "Blue",
+    },
+    # ── Reconnaissance ────────────────────────────────────────────────────────
+    "BRDM-2":       {
+        "display_name": "BRDM-2 Recon", "type": "recon",
+        "speed_kmh": 95, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical + IR", "range_km": 6, "modes": ["surface"]},
+        "default_loadout": {"ATGM_Konkurs": 6},
+        "available_weapons": ["ATGM_Konkurs"],
+        "fleet_count": 120, "player_side": "Blue",
+    },
+    "BRM-1":        {
+        "display_name": "BRM-1K Recon IFV", "type": "recon",
+        "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
+        "radar": {"type": "PSNR-5 battlefield radar", "range_km": 8, "modes": ["surface"]},
+        "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 4},
+        "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"],
+        "fleet_count": 50, "player_side": "Blue",
+    },
+    # ── Tank Destroyers ───────────────────────────────────────────────────────
+    "AMX10RC":      {
+        "display_name": "AMX-10 RC", "type": "tank_destroyer",
+        "speed_kmh": 85, "ceiling_ft": 0, "ecm_rating": 0.05,
+        "radar": {"type": "HL-70 sight", "range_km": 6, "modes": ["surface"]},
+        "default_loadout": {"GUN_105": 38, "ATGM_Stugna": 4},
+        "available_weapons": ["GUN_105", "ATGM_Stugna"],
+        "fleet_count": 35, "player_side": "Blue",
+    },
+    "9P148":        {
+        "display_name": "9P148 Konkurs ATGM carrier", "type": "tank_destroyer",
+        "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.02,
+        "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]},
+        "default_loadout": {"ATGM_Konkurs": 20},
+        "available_weapons": ["ATGM_Konkurs"],
+        "fleet_count": 7, "player_side": "Blue",
+    },
+
 }
 
 

@@ -11,7 +11,7 @@
 #
 # Combat mode layout:
 #   ┌────────────┬──────────────────┬──────────────────────────────┐
-#   │  Unit info │  Weapon buttons  │  Speed btns + Event log      │
+#   │  Unit info │  Weapon buttons  │  Speed btns + FOW + Log      │
 #   │  (col 1)   │  (col 2, click   │                              │
 #   │            │   to select)     │                              │
 #   └────────────┴──────────────────┴──────────────────────────────┘
@@ -22,7 +22,8 @@ from typing import Optional
 import pygame
 import pygame_gui
 from pygame_gui.elements import (
-    UIButton, UIPanel, UITextBox, UISelectionList, UILabel
+    UIButton, UIPanel, UITextBox, UISelectionList, UILabel,
+    UITextEntryLine,
 )
 
 from constants import BOTTOM_PANEL_HEIGHT, TIME_SPEEDS, TIME_SPEED_LABELS, DEFAULT_SPEED_IDX
@@ -60,9 +61,11 @@ class GameUI:
         self._remove_btn:   UIButton        = None       # type: ignore
         self._clear_btn:    UIButton        = None       # type: ignore
         self._start_btn:    UIButton        = None       # type: ignore
+        self._qty_entry:    UITextEntryLine = None       # type: ignore
         # Combat widgets
         self._nav_box:      UITextBox      = None        # type: ignore
         self._log_box:      UITextBox      = None        # type: ignore
+        self._fow_btn:      UIButton       = None        # type: ignore
         self._speed_btns:   list[UIButton] = []
         self._weap_btns:    list[UIButton] = []
         self._weap_keys:    list[str]      = []
@@ -72,20 +75,41 @@ class GameUI:
 
     # ── Roster ────────────────────────────────────────────────────────────────
 
+    # Category display names and their unit_type values (in desired order)
+    _CATEGORIES = [
+        ("─── FIXED-WING ───",   ("fighter", "attacker")),
+        ("─── ROTARY WING ───",  ("helicopter",)),
+        ("─── ARMOR (MBT) ───",  ("tank",)),
+        ("─── IFV ───",           ("ifv",)),
+        ("─── APC ───",           ("apc",)),
+        ("─── RECON ───",         ("recon",)),
+        ("─── TANK DESTROY ───",  ("tank_destroyer",)),
+    ]
+    _DIVIDER_PREFIX = "───"   # items whose keys start with this are non-selectable
+
     def _build_roster_data(self) -> None:
-        """Populate _roster_items / _roster_keys from DB (Blue platforms only,
-        sorted by fleet_count descending)."""
+        """Populate _roster_items / _roster_keys grouped by category."""
         self._roster_items.clear()
         self._roster_keys.clear()
-        blue = [
-            (key, p) for key, p in self._db.platforms.items()
-            if p.player_side == "Blue"
-        ]
-        blue.sort(key=lambda x: -x[1].fleet_count)
-        for key, p in blue:
-            label = f"{p.display_name}  ×{p.fleet_count}"
-            self._roster_items.append(label)
-            self._roster_keys.append(key)
+
+        blue = {key: p for key, p in self._db.platforms.items()
+                if p.player_side == "Blue"}
+
+        for header, types in self._CATEGORIES:
+            # collect platforms belonging to this category, sorted by fleet_count desc
+            group = sorted(
+                [(k, p) for k, p in blue.items() if p.unit_type in types],
+                key=lambda x: -x[1].fleet_count,
+            )
+            if not group:
+                continue
+            # Header divider (key = header text so it starts with _DIVIDER_PREFIX)
+            self._roster_items.append(header)
+            self._roster_keys.append(header)   # non-selectable; key == header
+            for key, p in group:
+                label = f"  {p.display_name}  ×{p.fleet_count}"
+                self._roster_items.append(label)
+                self._roster_keys.append(key)
 
     # ── Build ─────────────────────────────────────────────────────────────────
 
@@ -126,7 +150,7 @@ class GameUI:
         ctrl_x    = roster_w + _PAD * 2
         ctrl_w    = self._win_w - ctrl_x - _PAD
 
-        # Roster list (left)
+        # Roster list (left column)
         self._roster_list = UISelectionList(
             relative_rect=pygame.Rect(_PAD, _PAD,
                                       roster_w, panel_h - _PAD * 2),
@@ -135,14 +159,14 @@ class GameUI:
             container=self._panel,
         )
 
-        # Right pane: info + buttons
+        # Right column — info text box + buttons
         info_h = panel_h - (_BTN_H + _BTN_PAD) * 4 - _PAD * 3
         self._setup_info = UITextBox(
             html_text=(
                 "<b>UNIT DEPLOYMENT</b><br>"
-                "Select a unit type from the list,<br>"
+                "Select a unit type, set quantity,<br>"
                 "then click <b>Place on Map</b>.<br>"
-                "Left-click the map to position it.<br>"
+                "Each left-click places one unit.<br>"
                 "Right-click a placed unit to remove."
             ),
             relative_rect=pygame.Rect(ctrl_x, _PAD, ctrl_w, info_h),
@@ -151,8 +175,41 @@ class GameUI:
         )
 
         btn_y = info_h + _PAD * 2
+
+        # ── Row 1: Qty label + entry + Place on Map button (inline) ───────────
+        _LBL_W   = 28                          # "Qty:" label
+        _ENTRY_W = 52                          # digit entry box
+        _GAP     = _PAD
+        place_w  = ctrl_w - _LBL_W - _ENTRY_W - _GAP * 2
+
+        UILabel(
+            relative_rect=pygame.Rect(ctrl_x, btn_y, _LBL_W, _BTN_H),
+            text="Qty:",
+            manager=self.manager,
+            container=self._panel,
+        )
+        self._qty_entry = UITextEntryLine(
+            relative_rect=pygame.Rect(
+                ctrl_x + _LBL_W + _GAP, btn_y, _ENTRY_W, _BTN_H
+            ),
+            manager=self.manager,
+            container=self._panel,
+        )
+        self._qty_entry.set_text("1")
+        self._qty_entry.set_allowed_characters("numbers")
+
+        self._place_btn = UIButton(
+            relative_rect=pygame.Rect(
+                ctrl_x + _LBL_W + _ENTRY_W + _GAP * 2, btn_y, place_w, _BTN_H
+            ),
+            text="Place on Map",
+            manager=self.manager,
+            container=self._panel,
+        )
+        btn_y += _BTN_H + _BTN_PAD
+
+        # ── Rows 2-4: Remove / Clear / Start ─────────────────────────────────
         for label, attr in [
-            ("Place on Map",        "_place_btn"),
             ("Remove Selected",     "_remove_btn"),
             ("Clear All Blue",      "_clear_btn"),
             ("▶  START SIMULATION", "_start_btn"),
@@ -202,8 +259,17 @@ class GameUI:
                 container=self._panel,
             ))
 
+        # Fog of War Toggle Button
+        fow_y = _PAD + _BTN_H + _BTN_PAD
+        self._fow_btn = UIButton(
+            relative_rect=pygame.Rect(col3_x, fow_y, c3, _BTN_H),
+            text="FOG OF WAR: ON",
+            manager=self.manager,
+            container=self._panel,
+        )
+
         # Col 3 bottom — event log
-        log_y = _PAD + _BTN_H + _BTN_PAD
+        log_y = fow_y + _BTN_H + _BTN_PAD
         self._log_box = UITextBox(
             html_text="<b>EVENT LOG</b>",
             relative_rect=pygame.Rect(
@@ -252,6 +318,18 @@ class GameUI:
             self._weap_btns.append(btn)
             self._weap_keys.append(wkey)
 
+    # ── Helpers ──────────────────────────────────────────────────────────────
+
+    def _parse_qty(self) -> int:
+        """Read the qty entry, clamp to [1, 20], default 1 on bad input."""
+        if self._qty_entry is None:
+            return 1
+        try:
+            n = int(self._qty_entry.get_text())
+        except (ValueError, TypeError):
+            n = 1
+        return max(1, min(20, n))
+
     # ── Mode switch ───────────────────────────────────────────────────────────
 
     def set_mode(self, mode: str) -> None:
@@ -277,7 +355,12 @@ class GameUI:
                            if self._roster_list else None)
                     if sel and sel in self._roster_items:
                         key = self._roster_keys[self._roster_items.index(sel)]
-                        return {"type": "place_unit", "platform_key": key}
+                        # Skip divider headers — they are not real platforms
+                        if key.startswith(self._DIVIDER_PREFIX):
+                            return {"type": "place_unit_no_selection"}
+                        qty = self._parse_qty()
+                        return {"type": "place_unit",
+                                "platform_key": key, "quantity": qty}
                     return {"type": "place_unit_no_selection"}
                 if event.ui_element == self._remove_btn:
                     return {"type": "remove_selected"}
@@ -291,6 +374,10 @@ class GameUI:
                 if event.ui_element == btn:
                     self._speed_idx = i
                     return {"type": "speed_change", "speed_idx": i}
+            
+            # Fog of War button
+            if self._mode == "combat" and event.ui_element == self._fow_btn:
+                return {"type": "toggle_fow"}
 
             # Weapon select buttons
             for i, btn in enumerate(self._weap_btns):
@@ -305,7 +392,9 @@ class GameUI:
     def update(self, time_delta: float,
                sim: Optional[SimulationEngine],
                selected: Optional[Unit],
-               placing_type: Optional[str] = None) -> None:
+               placing_type: Optional[str] = None,
+               placing_remaining: int = 0,
+               show_all_enemies: bool = False) -> None:
 
         if self._mode == "setup":
             # Update setup info pane
@@ -314,9 +403,9 @@ class GameUI:
                     p = self._db.platforms.get(placing_type)
                     pname = p.display_name if p else placing_type
                     self._setup_info.set_text(
-                        f"<b>PLACING:</b> {pname}<br><br>"
-                        f"Left-click on the map to<br>"
-                        f"set the unit's start position.<br><br>"
+                        f"<b>PLACING:</b> {pname}<br>"
+                        f"<b>{placing_remaining} remaining</b><br>"
+                        f"Left-click map to place unit.<br>"
                         f"Press ESC to cancel."
                     )
                 else:
@@ -328,10 +417,19 @@ class GameUI:
                             key = self._roster_keys[self._roster_items.index(s)]
                             p   = self._db.platforms.get(key)
                             if p:
+                                type_labels = {
+                                    "fighter":"Fighter","attacker":"Attack",
+                                    "helicopter":"Helicopter","tank":"MBT",
+                                    "ifv":"IFV","apc":"APC","recon":"Recon",
+                                    "tank_destroyer":"Tank Destroyer",
+                                }
+                                tl = type_labels.get(p.unit_type, p.unit_type.upper())
+                                spd_lbl = "km/h" if p.unit_type not in ("tank","ifv","apc","recon","tank_destroyer") else "km/h (road)"
                                 sel_str = (
                                     f"<b>Selected:</b> {p.display_name}<br>"
-                                    f"Spd {p.speed_kmh:,} km/h  "
-                                    f"Radar {p.radar_range_km} km<br>"
+                                    f"<b>Type:</b> {tl}  ×{p.fleet_count} in service<br>"
+                                    f"Spd {p.speed_kmh} {spd_lbl}  "
+                                    f"Detect {p.radar_range_km} km<br>"
                                     f"ECM {int(p.ecm_rating*100)}%<br>"
                                     f"<br>"
                                 )
@@ -383,6 +481,10 @@ class GameUI:
                 self._log_box.set_text("<br>".join(
                     f'<font color="#90D090">› {e}</font>' for e in recent
                 ))
+
+            # Update FOW Button Text
+            if self._fow_btn:
+                self._fow_btn.set_text(f"FOG OF WAR: {'OFF' if show_all_enemies else 'ON'}")
 
         self.manager.update(time_delta)
 
