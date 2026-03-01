@@ -41,15 +41,22 @@ class GameUI:
         self._place_btn:    UIButton        = None       # type: ignore
         self._remove_btn:   UIButton        = None       # type: ignore
         self._clear_btn:    UIButton        = None       # type: ignore
+        self._save_deploy_btn: UIButton     = None       # type: ignore
+        self._load_deploy_btn: UIButton     = None       # type: ignore
         self._start_btn:    UIButton        = None       # type: ignore
         self._qty_entry:    UITextEntryLine = None       # type: ignore
         
         self._nav_box:      UITextBox      = None        # type: ignore
         self._log_box:      UITextBox      = None        # type: ignore
         self._fow_btn:      UIButton       = None        # type: ignore
-        self._auto_engage_btn: UIButton    = None        # type: ignore
         
-        # Granular Altitude control buttons
+        self._auto_engage_btn: UIButton    = None        # type: ignore
+        self._roe_btn:      UIButton       = None        # type: ignore
+        self._ecm_btn:      UIButton       = None        # type: ignore
+        
+        self._assign_cap_btn: UIButton     = None        # type: ignore
+        self._clear_msn_btn:  UIButton     = None        # type: ignore
+
         self._climb_5k_btn: UIButton       = None        # type: ignore
         self._climb_1k_btn: UIButton       = None        # type: ignore
         self._climb_500_btn:UIButton       = None        # type: ignore
@@ -60,6 +67,10 @@ class GameUI:
         self._speed_btns:   list[UIButton] = []
         self._weap_btns:    list[UIButton] = []
         self._weap_keys:    list[str]      = []
+        
+        self.salvo_mode = "1"
+        self._salvo_modes = ["1", "2", "4", "SLS"]
+        self._salvo_btns:   list[UIButton] = []
 
         self._build_roster_data()
         self._build()
@@ -109,6 +120,7 @@ class GameUI:
         self._speed_btns = []
         self._weap_btns  = []
         self._weap_keys  = []
+        self._salvo_btns = []
 
         panel_h = max(BOTTOM_PANEL_MIN_HEIGHT, int(self._win_h * BOTTOM_PANEL_FRACTION))
         panel_y = self._win_h - panel_h
@@ -133,7 +145,7 @@ class GameUI:
             item_list=self._roster_items, manager=self.manager, container=self._panel,
         )
 
-        info_h = panel_h - (_BTN_H + _BTN_PAD) * 5 - _PAD * 3
+        info_h = panel_h - (_BTN_H + _BTN_PAD) * 7 - _PAD * 3
         self._setup_info = UITextBox(
             html_text=(
                 "<b>UNIT DEPLOYMENT</b><br>"
@@ -158,7 +170,14 @@ class GameUI:
         self._place_btn = UIButton(relative_rect=pygame.Rect(ctrl_x + _LBL_W + _ENTRY_W + _GAP * 2, btn_y, place_w, _BTN_H), text="Place on Map", manager=self.manager, container=self._panel)
         btn_y += _BTN_H + _BTN_PAD
 
-        for label, attr in [("Remove Selected", "_remove_btn"), ("Clear All Blue", "_clear_btn"), ("FOG OF WAR: ON", "_fow_btn"), ("▶  START SIMULATION", "_start_btn")]:
+        for label, attr in [
+            ("Remove Selected",     "_remove_btn"),
+            ("Clear All Blue",      "_clear_btn"),
+            ("Save Deployment",     "_save_deploy_btn"),
+            ("Load Deployment",     "_load_deploy_btn"),
+            ("FOG OF WAR: ON",      "_fow_btn"),
+            ("▶  START SIMULATION", "_start_btn")
+        ]:
             btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, ctrl_w, _BTN_H), text=label, manager=self.manager, container=self._panel)
             setattr(self, attr, btn)
             btn_y += _BTN_H + _BTN_PAD
@@ -167,10 +186,11 @@ class GameUI:
         c1, c2, c3 = self._col_widths()
         col1_x, col2_x, col3_x = _PAD, _PAD + c1 + _PAD, _PAD + c1 + _PAD + c2 + _PAD
 
-        row2_y = panel_h - _PAD - _BTN_H
+        row4_y = panel_h - _PAD - _BTN_H
+        row3_y = row4_y - _BTN_PAD - _BTN_H
+        row2_y = row3_y - _BTN_PAD - _BTN_H
         row1_y = row2_y - _BTN_PAD - _BTN_H
-        auto_y = row1_y - _BTN_PAD - _BTN_H
-        nav_h  = auto_y - (_PAD * 2)
+        nav_h  = row1_y - (_PAD * 2)
 
         self._nav_box = UITextBox(
             html_text="<b>STANDBY</b>",
@@ -178,24 +198,43 @@ class GameUI:
             manager=self.manager, container=self._panel,
         )
         
-        self._auto_engage_btn = UIButton(
-            relative_rect=pygame.Rect(col1_x, auto_y, c1, _BTN_H),
-            text="AUTO-ENGAGE: OFF", manager=self.manager, container=self._panel
-        )
-        self._auto_engage_btn.hide()
-        
-        btn_w3 = (c1 - _BTN_PAD * 2) // 3
-        
-        # Descriptive Altitude Controls with hover tooltips
-        self._climb_5k_btn = UIButton(relative_rect=pygame.Rect(col1_x, row1_y, btn_w3, _BTN_H), text="▲ +5,000 ft", tool_tip_text="Command Aircraft to Climb 5,000 feet", manager=self.manager, container=self._panel)
-        self._climb_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w3 + _BTN_PAD, row1_y, btn_w3, _BTN_H), text="▲ +1,000 ft", tool_tip_text="Command Aircraft to Climb 1,000 feet", manager=self.manager, container=self._panel)
-        self._climb_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w3 + _BTN_PAD)*2, row1_y, btn_w3, _BTN_H), text="▲ +500 ft", tool_tip_text="Command Aircraft to Climb 500 feet", manager=self.manager, container=self._panel)
+        btn_w_third = (c1 - _BTN_PAD * 2) // 3
+        btn_w_half  = (c1 - _BTN_PAD) // 2
 
-        self._dive_5k_btn = UIButton(relative_rect=pygame.Rect(col1_x, row2_y, btn_w3, _BTN_H), text="▼ -5,000 ft", tool_tip_text="Command Aircraft to Dive 5,000 feet", manager=self.manager, container=self._panel)
-        self._dive_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w3 + _BTN_PAD, row2_y, btn_w3, _BTN_H), text="▼ -1,000 ft", tool_tip_text="Command Aircraft to Dive 1,000 feet", manager=self.manager, container=self._panel)
-        self._dive_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w3 + _BTN_PAD)*2, row2_y, btn_w3, _BTN_H), text="▼ -500 ft", tool_tip_text="Command Aircraft to Dive 500 feet", manager=self.manager, container=self._panel)
+        # Row 1 & 2: Altitude
+        self._climb_5k_btn = UIButton(relative_rect=pygame.Rect(col1_x, row1_y, btn_w_third, _BTN_H), text="▲ +5k ft", tool_tip_text="Climb 5,000 feet", manager=self.manager, container=self._panel)
+        self._climb_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row1_y, btn_w_third, _BTN_H), text="▲ +1k ft", tool_tip_text="Climb 1,000 feet", manager=self.manager, container=self._panel)
+        self._climb_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row1_y, btn_w_third, _BTN_H), text="▲ +500 ft", tool_tip_text="Climb 500 feet", manager=self.manager, container=self._panel)
+
+        self._dive_5k_btn = UIButton(relative_rect=pygame.Rect(col1_x, row2_y, btn_w_third, _BTN_H), text="▼ -5k ft", tool_tip_text="Dive 5,000 feet", manager=self.manager, container=self._panel)
+        self._dive_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row2_y, btn_w_third, _BTN_H), text="▼ -1k ft", tool_tip_text="Dive 1,000 feet", manager=self.manager, container=self._panel)
+        self._dive_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row2_y, btn_w_third, _BTN_H), text="▼ -500 ft", tool_tip_text="Dive 500 feet", manager=self.manager, container=self._panel)
+
+        # Row 3: Doctrine & EW
+        self._auto_engage_btn = UIButton(relative_rect=pygame.Rect(col1_x, row3_y, btn_w_third, _BTN_H), text="AUTO", manager=self.manager, container=self._panel)
+        self._roe_btn         = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row3_y, btn_w_third, _BTN_H), text="ROE: TGT", manager=self.manager, container=self._panel)
+        self._ecm_btn         = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row3_y, btn_w_third, _BTN_H), text="ECM: PAS", manager=self.manager, container=self._panel)
+
+        # Row 4: Missions
+        self._assign_cap_btn = UIButton(relative_rect=pygame.Rect(col1_x, row4_y, btn_w_half, _BTN_H), text="ASSIGN CAP", tool_tip_text="Click map to set CAP center", manager=self.manager, container=self._panel)
+        self._clear_msn_btn  = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_half + _BTN_PAD, row4_y, btn_w_half, _BTN_H), text="CLEAR MSN", manager=self.manager, container=self._panel)
+        
+        self._auto_engage_btn.hide()
+        self._roe_btn.hide()
+        self._ecm_btn.hide()
+        self._assign_cap_btn.hide()
+        self._clear_msn_btn.hide()
 
         UILabel(relative_rect=pygame.Rect(col2_x, _PAD, c2, 20), text="ARMAMENTS  (click to select)", manager=self.manager, container=self._panel)
+
+        salvo_y = _PAD + 22
+        btn_w_salvo = (c2 - _BTN_PAD * 3) // 4
+        for i, smode in enumerate(self._salvo_modes):
+            bx = col2_x + i * (btn_w_salvo + _BTN_PAD)
+            btn = UIButton(relative_rect=pygame.Rect(bx, salvo_y, btn_w_salvo, _BTN_H), 
+                           text=smode, manager=self.manager, container=self._panel)
+            self._salvo_btns.append(btn)
+        self.refresh_salvo_buttons()
 
         n       = len(TIME_SPEED_LABELS)
         btn_w   = max(44, (c3 - _BTN_PAD * (n - 1)) // n)
@@ -216,6 +255,14 @@ class GameUI:
             manager=self.manager, container=self._panel,
         )
 
+    def refresh_salvo_buttons(self) -> None:
+        for i, btn in enumerate(self._salvo_btns):
+            mode = self._salvo_modes[i]
+            if mode == self.salvo_mode:
+                btn.set_text(f"► {mode}")
+            else:
+                btn.set_text(mode)
+
     def rebuild_weapon_buttons(self, unit: Optional[Unit]) -> None:
         for btn in self._weap_btns: btn.kill()
         self._weap_btns.clear()
@@ -226,7 +273,7 @@ class GameUI:
         _, c2, _ = self._col_widths()
         c1, _, _ = self._col_widths()
         col2_x   = _PAD + c1 + _PAD
-        start_y  = _PAD + 22   
+        start_y  = _PAD + 22 + _BTN_H + _BTN_PAD  
 
         for i, (wkey, qty) in enumerate(unit.loadout.items()):
             wdef     = self._db.weapons.get(wkey)
@@ -269,10 +316,15 @@ class GameUI:
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self._fow_btn: return {"type": "toggle_fow"}
-            if hasattr(self, "_auto_engage_btn") and event.ui_element == self._auto_engage_btn: 
-                return {"type": "toggle_auto_engage"}
+            if hasattr(self, "_auto_engage_btn") and event.ui_element == self._auto_engage_btn: return {"type": "toggle_auto_engage"}
+            if hasattr(self, "_roe_btn") and event.ui_element == self._roe_btn: return {"type": "toggle_roe"}
+            if hasattr(self, "_ecm_btn") and event.ui_element == self._ecm_btn: return {"type": "toggle_ecm"}
+            if hasattr(self, "_assign_cap_btn") and event.ui_element == self._assign_cap_btn: return {"type": "assign_cap"}
+            if hasattr(self, "_clear_msn_btn") and event.ui_element == self._clear_msn_btn: return {"type": "clear_mission"}
             
             if self._mode == "setup":
+                if event.ui_element == getattr(self, "_save_deploy_btn", None): return {"type": "save_deployment"}
+                if event.ui_element == getattr(self, "_load_deploy_btn", None): return {"type": "load_deployment"}
                 if event.ui_element == self._place_btn:
                     sel = (self._roster_list.get_single_selection() if self._roster_list else None)
                     if sel and sel in self._roster_items:
@@ -292,6 +344,12 @@ class GameUI:
                     if event.ui_element == self._dive_5k_btn: return {"type": "change_alt", "delta": -5000}
                     if event.ui_element == self._dive_1k_btn: return {"type": "change_alt", "delta": -1000}
                     if event.ui_element == self._dive_500_btn: return {"type": "change_alt", "delta": -500}
+
+                for i, btn in enumerate(self._salvo_btns):
+                    if event.ui_element == btn:
+                        self.salvo_mode = self._salvo_modes[i]
+                        self.refresh_salvo_buttons()
+                        return {"type": "salvo_change"}
 
                 for i, btn in enumerate(self._speed_btns):
                     if event.ui_element == btn: return {"type": "speed_change", "speed_idx": i}
@@ -336,13 +394,28 @@ class GameUI:
                 for btn in alt_btns:
                     if btn: btn.show() if is_blue_air else btn.hide()
 
+                if getattr(self, "_assign_cap_btn", None):
+                    self._assign_cap_btn.show() if is_blue_air else self._assign_cap_btn.hide()
+                    self._clear_msn_btn.show() if is_blue_air else self._clear_msn_btn.hide()
+
                 is_blue_armed = selected.side == "Blue" and len(p.available_weapons) > 0
                 if getattr(self, "_auto_engage_btn", None):
                     if is_blue_armed:
                         self._auto_engage_btn.show()
-                        self._auto_engage_btn.set_text(f"AUTO-ENGAGE: {'ON' if getattr(selected, 'auto_engage', False) else 'OFF'}")
+                        self._roe_btn.show()
+                        self._auto_engage_btn.set_text(f"AUTO: {'ON' if getattr(selected, 'auto_engage', False) else 'OFF'}")
+                        self._roe_btn.set_text(f"ROE: {selected.roe}")
                     else:
                         self._auto_engage_btn.hide()
+                        self._roe_btn.hide()
+                        
+                has_ecm = selected.side == "Blue" and p.ecm_rating > 0
+                if getattr(self, "_ecm_btn", None):
+                    if has_ecm:
+                        self._ecm_btn.show()
+                        self._ecm_btn.set_text(f"ECM: {'ACTV' if selected.is_jamming else 'PASS'}")
+                    else:
+                        self._ecm_btn.hide()
 
                 alt_display = f"{int(selected.altitude_ft):,} ft"
                 if int(selected.target_altitude_ft) != int(selected.altitude_ft):
@@ -365,9 +438,11 @@ class GameUI:
                     elif cls == "PROBABLE":
                         self._nav_box.set_text(f"<b>CONTACT</b>  <font color='{cls_col}'>{cls}</font><br><b>Pos:</b> {contact.lat:.3f}°N  {contact.lon:.3f}°E<br><b>Type:</b> {contact.unit_type or 'unknown'}<br><b>Alt:</b> {int(contact.altitude_ft):,} ft<br><b>Side:</b> unknown")
                     else:  
-                        self._nav_box.set_text(f"<b>CONTACT — {selected.callsign}</b>  <font color='{cls_col}'>{cls}</font><br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font><br><b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Alt:</b> {alt_display}  <b>Spd:</b> {p.speed_kmh:,} km/h<br><b>RCS:</b> {p.rcs_m2} m²  <b>ECM:</b> {int(p.ecm_rating*100)}%")
+                        msn_str = f"<b>Mission:</b> {selected.mission.mission_type}" if selected.mission else "<b>Mission:</b> NONE"
+                        self._nav_box.set_text(f"<b>CONTACT — {selected.callsign}</b>  <font color='{cls_col}'>{cls}</font><br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font> {msn_str}<br><b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Alt:</b> {alt_display}  <b>Spd:</b> {p.speed_kmh:,} km/h<br><b>RCS:</b> {p.rcs_m2} m²  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})")
                 elif selected.side == "Blue":
-                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  <b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)<br><b>Spd:</b> {p.speed_kmh:,} km/h  <b>Alt:</b> {alt_display}<br><b>Radar:</b> {p.radar_range_km} km  <b>ECM:</b> {int(p.ecm_rating*100)}%<br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
+                    msn_str = f"<b>Mission:</b> {selected.mission.mission_type} ({selected.mission.name})" if selected.mission else "<b>Mission:</b> NONE"
+                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  <b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)<br>{msn_str}<br><b>Spd:</b> {p.speed_kmh:,} km/h  <b>Alt:</b> {alt_display}<br><b>Radar:</b> {p.radar_range_km} km  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})<br><b>Chaff/Flare:</b> {selected.chaff} / {selected.flare}<br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
                 else:
                     self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Red]<br><b>Type:</b> {p.display_name}<br><b>Not currently tracked</b>")
             else:
@@ -379,6 +454,10 @@ class GameUI:
                     if btn: btn.hide()
                     
                 if getattr(self, "_auto_engage_btn", None): self._auto_engage_btn.hide()
+                if getattr(self, "_roe_btn", None): self._roe_btn.hide()
+                if getattr(self, "_ecm_btn", None): self._ecm_btn.hide()
+                if getattr(self, "_assign_cap_btn", None): self._assign_cap_btn.hide()
+                if getattr(self, "_clear_msn_btn", None): self._clear_msn_btn.hide()
                 
                 t  = SimulationEngine._fmt_time(sim.game_time)
                 cx = "PAUSED" if sim.paused else f"{sim.time_compression}×"

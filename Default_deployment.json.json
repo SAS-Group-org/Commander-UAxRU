@@ -1,0 +1,1199 @@
+{
+  "deployment": [
+    {
+      "id": "blue_0001",
+      "platform": "Patriot",
+      "callsign": "UNIT 1",
+      "side": "Blue",
+      "lat": 49.16891,
+      "lon": 28.477722,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "PAC-3": 16
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0002",
+      "platform": "Patriot",
+      "callsign": "UNIT 2",
+      "side": "Blue",
+      "lat": 50.41705,
+      "lon": 30.389343,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "PAC-3": 16
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0003",
+      "platform": "Patriot",
+      "callsign": "UNIT 3",
+      "side": "Blue",
+      "lat": 49.864325,
+      "lon": 29.94989,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "PAC-3": 16
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0004",
+      "platform": "IRIS-T_SLM",
+      "callsign": "UNIT 1",
+      "side": "Blue",
+      "lat": 48.949337,
+      "lon": 29.406067,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "IRIS-T": 8
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0005",
+      "platform": "IRIS-T_SLM",
+      "callsign": "UNIT 2",
+      "side": "Blue",
+      "lat": 49.351743,
+      "lon": 29.955383,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "IRIS-T": 8
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0006",
+      "platform": "IRIS-T_SLM",
+      "callsign": "UNIT 3",
+      "side": "Blue",
+      "lat": 50.549871,
+      "lon": 31.696716,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "IRIS-T": 8
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0007",
+      "platform": "IRIS-T_SLM",
+      "callsign": "UNIT 4",
+      "side": "Blue",
+      "lat": 49.711827,
+      "lon": 30.93866,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "IRIS-T": 8
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0008",
+      "platform": "NASAMS",
+      "callsign": "UNIT 1",
+      "side": "Blue",
+      "lat": 48.521835,
+      "lon": 29.213806,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0009",
+      "platform": "NASAMS",
+      "callsign": "UNIT 2",
+      "side": "Blue",
+      "lat": 49.161726,
+      "lon": 29.779602,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0010",
+      "platform": "NASAMS",
+      "callsign": "UNIT 3",
+      "side": "Blue",
+      "lat": 49.569536,
+      "lon": 30.427795,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0011",
+      "platform": "NASAMS",
+      "callsign": "UNIT 4",
+      "side": "Blue",
+      "lat": 50.234689,
+      "lon": 31.378113,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0012",
+      "platform": "NASAMS",
+      "callsign": "UNIT 5",
+      "side": "Blue",
+      "lat": 50.803982,
+      "lon": 32.180115,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0013",
+      "platform": "NASAMS",
+      "callsign": "UNIT 6",
+      "side": "Blue",
+      "lat": 50.266302,
+      "lon": 30.449768,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120_SAM": 6
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0014",
+      "platform": "T-72",
+      "callsign": "UNIT 1",
+      "side": "Blue",
+      "lat": 48.682347,
+      "lon": 32.634159,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0015",
+      "platform": "T-72",
+      "callsign": "UNIT 2",
+      "side": "Blue",
+      "lat": 48.680307,
+      "lon": 32.635189,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0016",
+      "platform": "T-72",
+      "callsign": "UNIT 3",
+      "side": "Blue",
+      "lat": 48.677587,
+      "lon": 32.635189,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0017",
+      "platform": "T-72",
+      "callsign": "UNIT 4",
+      "side": "Blue",
+      "lat": 48.67668,
+      "lon": 32.635532,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0018",
+      "platform": "T-72",
+      "callsign": "UNIT 5",
+      "side": "Blue",
+      "lat": 48.673506,
+      "lon": 32.635876,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0019",
+      "platform": "T-72",
+      "callsign": "UNIT 6",
+      "side": "Blue",
+      "lat": 48.670786,
+      "lon": 32.638279,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0020",
+      "platform": "T-72",
+      "callsign": "UNIT 7",
+      "side": "Blue",
+      "lat": 48.617477,
+      "lon": 32.966496,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0021",
+      "platform": "T-72",
+      "callsign": "UNIT 8",
+      "side": "Blue",
+      "lat": 48.613165,
+      "lon": 32.962376,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0022",
+      "platform": "T-72",
+      "callsign": "UNIT 9",
+      "side": "Blue",
+      "lat": 48.609987,
+      "lon": 32.959629,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0023",
+      "platform": "T-72",
+      "callsign": "UNIT 10",
+      "side": "Blue",
+      "lat": 48.606582,
+      "lon": 32.958599,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0024",
+      "platform": "T-72",
+      "callsign": "UNIT 11",
+      "side": "Blue",
+      "lat": 48.603857,
+      "lon": 32.955853,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0025",
+      "platform": "T-72",
+      "callsign": "UNIT 12",
+      "side": "Blue",
+      "lat": 48.600225,
+      "lon": 32.954136,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0026",
+      "platform": "T-72",
+      "callsign": "UNIT 13",
+      "side": "Blue",
+      "lat": 48.709994,
+      "lon": 33.101765,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0027",
+      "platform": "T-72",
+      "callsign": "UNIT 14",
+      "side": "Blue",
+      "lat": 48.714072,
+      "lon": 33.100735,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0028",
+      "platform": "T-72",
+      "callsign": "UNIT 15",
+      "side": "Blue",
+      "lat": 48.717696,
+      "lon": 33.100735,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0029",
+      "platform": "T-72",
+      "callsign": "UNIT 16",
+      "side": "Blue",
+      "lat": 48.72132,
+      "lon": 33.100735,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0030",
+      "platform": "T-72",
+      "callsign": "UNIT 17",
+      "side": "Blue",
+      "lat": 48.725623,
+      "lon": 33.101078,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0031",
+      "platform": "T-72",
+      "callsign": "UNIT 18",
+      "side": "Blue",
+      "lat": 48.731285,
+      "lon": 33.106228,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0032",
+      "platform": "T-72",
+      "callsign": "UNIT 19",
+      "side": "Blue",
+      "lat": 48.220784,
+      "lon": 33.75322,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0033",
+      "platform": "T-72",
+      "callsign": "UNIT 20",
+      "side": "Blue",
+      "lat": 48.250055,
+      "lon": 33.674942,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0034",
+      "platform": "T-72",
+      "callsign": "UNIT 21",
+      "side": "Blue",
+      "lat": 47.884809,
+      "lon": 33.517014,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0035",
+      "platform": "T-72",
+      "callsign": "UNIT 22",
+      "side": "Blue",
+      "lat": 47.892176,
+      "lon": 33.517014,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0036",
+      "platform": "T-72",
+      "callsign": "UNIT 23",
+      "side": "Blue",
+      "lat": 47.902304,
+      "lon": 33.51564,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0037",
+      "platform": "T-72",
+      "callsign": "UNIT 24",
+      "side": "Blue",
+      "lat": 47.907828,
+      "lon": 33.510147,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0038",
+      "platform": "T-72",
+      "callsign": "UNIT 25",
+      "side": "Blue",
+      "lat": 48.24251,
+      "lon": 33.669964,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0039",
+      "platform": "T-72",
+      "callsign": "UNIT 26",
+      "side": "Blue",
+      "lat": 48.241824,
+      "lon": 33.656574,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0040",
+      "platform": "T-72",
+      "callsign": "UNIT 27",
+      "side": "Blue",
+      "lat": 48.248683,
+      "lon": 33.653484,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0041",
+      "platform": "T-72",
+      "callsign": "UNIT 28",
+      "side": "Blue",
+      "lat": 48.242739,
+      "lon": 33.641811,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0042",
+      "platform": "T-72",
+      "callsign": "UNIT 29",
+      "side": "Blue",
+      "lat": 48.217353,
+      "lon": 33.759228,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0043",
+      "platform": "T-72",
+      "callsign": "UNIT 30",
+      "side": "Blue",
+      "lat": 48.213464,
+      "lon": 33.756481,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0044",
+      "platform": "T-72",
+      "callsign": "UNIT 31",
+      "side": "Blue",
+      "lat": 48.208888,
+      "lon": 33.750301,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0045",
+      "platform": "T-72",
+      "callsign": "UNIT 32",
+      "side": "Blue",
+      "lat": 48.203625,
+      "lon": 33.760944,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0046",
+      "platform": "T-72",
+      "callsign": "UNIT 33",
+      "side": "Blue",
+      "lat": 48.200422,
+      "lon": 33.745152,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0047",
+      "platform": "T-72",
+      "callsign": "UNIT 34",
+      "side": "Blue",
+      "lat": 49.92183,
+      "lon": 36.231323,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0048",
+      "platform": "T-72",
+      "callsign": "UNIT 35",
+      "side": "Blue",
+      "lat": 49.911219,
+      "lon": 36.264282,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0049",
+      "platform": "T-72",
+      "callsign": "UNIT 36",
+      "side": "Blue",
+      "lat": 49.907681,
+      "lon": 36.258789,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0050",
+      "platform": "T-72",
+      "callsign": "UNIT 37",
+      "side": "Blue",
+      "lat": 49.904144,
+      "lon": 36.231323,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0051",
+      "platform": "T-72",
+      "callsign": "UNIT 38",
+      "side": "Blue",
+      "lat": 49.893528,
+      "lon": 36.192871,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0052",
+      "platform": "T-72",
+      "callsign": "UNIT 39",
+      "side": "Blue",
+      "lat": 49.868751,
+      "lon": 36.198364,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "GUN_125": 40,
+        "ATGM_Konkurs": 4
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0053",
+      "platform": "Bradley",
+      "callsign": "UNIT 1",
+      "side": "Blue",
+      "lat": 48.151199,
+      "lon": 33.703953,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0054",
+      "platform": "Bradley",
+      "callsign": "UNIT 2",
+      "side": "Blue",
+      "lat": 48.147305,
+      "lon": 33.704639,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0055",
+      "platform": "Bradley",
+      "callsign": "UNIT 3",
+      "side": "Blue",
+      "lat": 48.144556,
+      "lon": 33.704983,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0056",
+      "platform": "Bradley",
+      "callsign": "UNIT 4",
+      "side": "Blue",
+      "lat": 48.140661,
+      "lon": 33.705669,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0057",
+      "platform": "Bradley",
+      "callsign": "UNIT 5",
+      "side": "Blue",
+      "lat": 48.136308,
+      "lon": 33.707386,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0058",
+      "platform": "Bradley",
+      "callsign": "UNIT 6",
+      "side": "Blue",
+      "lat": 48.131267,
+      "lon": 33.707729,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0059",
+      "platform": "Bradley",
+      "callsign": "UNIT 7",
+      "side": "Blue",
+      "lat": 48.125768,
+      "lon": 33.709103,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0060",
+      "platform": "Bradley",
+      "callsign": "UNIT 8",
+      "side": "Blue",
+      "lat": 48.121413,
+      "lon": 33.709446,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0061",
+      "platform": "Bradley",
+      "callsign": "UNIT 9",
+      "side": "Blue",
+      "lat": 48.117288,
+      "lon": 33.711506,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0062",
+      "platform": "Bradley",
+      "callsign": "UNIT 10",
+      "side": "Blue",
+      "lat": 48.11362,
+      "lon": 33.712193,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0063",
+      "platform": "Bradley",
+      "callsign": "UNIT 11",
+      "side": "Blue",
+      "lat": 48.110411,
+      "lon": 33.712879,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0064",
+      "platform": "Bradley",
+      "callsign": "UNIT 12",
+      "side": "Blue",
+      "lat": 48.107431,
+      "lon": 33.713909,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0065",
+      "platform": "Bradley",
+      "callsign": "UNIT 13",
+      "side": "Blue",
+      "lat": 48.264912,
+      "lon": 33.641468,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0066",
+      "platform": "Bradley",
+      "callsign": "UNIT 14",
+      "side": "Blue",
+      "lat": 48.266055,
+      "lon": 33.646618,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0067",
+      "platform": "Bradley",
+      "callsign": "UNIT 15",
+      "side": "Blue",
+      "lat": 48.26994,
+      "lon": 33.653828,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0068",
+      "platform": "Bradley",
+      "callsign": "UNIT 16",
+      "side": "Blue",
+      "lat": 48.270626,
+      "lon": 33.647991,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0069",
+      "platform": "Bradley",
+      "callsign": "UNIT 17",
+      "side": "Blue",
+      "lat": 48.268569,
+      "lon": 33.640781,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0070",
+      "platform": "Bradley",
+      "callsign": "UNIT 18",
+      "side": "Blue",
+      "lat": 48.268569,
+      "lon": 33.633572,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0071",
+      "platform": "Bradley",
+      "callsign": "UNIT 19",
+      "side": "Blue",
+      "lat": 48.272454,
+      "lon": 33.633572,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0072",
+      "platform": "Bradley",
+      "callsign": "UNIT 20",
+      "side": "Blue",
+      "lat": 48.27451,
+      "lon": 33.639751,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AUTOCANNON_25": 900,
+        "ATGM_TOW": 7
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0001",
+      "platform": "F-16AM",
+      "callsign": "VIPER 1",
+      "side": "Blue",
+      "lat": 49.047545,
+      "lon": 28.472744,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0002",
+      "platform": "F-16AM",
+      "callsign": "VIPER 2",
+      "side": "Blue",
+      "lat": 49.043269,
+      "lon": 28.477551,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0003",
+      "platform": "F-16AM",
+      "callsign": "VIPER 3",
+      "side": "Blue",
+      "lat": 49.05902,
+      "lon": 28.473431,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0004",
+      "platform": "F-16AM",
+      "callsign": "VIPER 4",
+      "side": "Blue",
+      "lat": 49.053845,
+      "lon": 28.47858,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0005",
+      "platform": "F-16AM",
+      "callsign": "VIPER 5",
+      "side": "Blue",
+      "lat": 49.041919,
+      "lon": 28.588787,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0006",
+      "platform": "F-16AM",
+      "callsign": "VIPER 6",
+      "side": "Blue",
+      "lat": 49.036292,
+      "lon": 28.5881,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0007",
+      "platform": "F-16AM",
+      "callsign": "VIPER 7",
+      "side": "Blue",
+      "lat": 49.026163,
+      "lon": 28.563725,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    },
+    {
+      "id": "blue_0008",
+      "platform": "F-16AM",
+      "callsign": "VIPER 8",
+      "side": "Blue",
+      "lat": 49.021435,
+      "lon": 28.564754,
+      "image_path": "assets/blue_jet.png",
+      "loadout": {
+        "AIM-120C": 4,
+        "AIM-9X": 2,
+        "M61A1": 1
+      },
+      "roe": "TIGHT",
+      "waypoints": []
+    }
+  ]
+}

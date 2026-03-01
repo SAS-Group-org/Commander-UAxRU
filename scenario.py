@@ -14,7 +14,7 @@ from typing import Optional
 
 import pygame
 
-from constants import MIN_PK, MAX_PK, MISSILE_TRAIL_LEN
+from constants import MIN_PK, MAX_PK, MISSILE_TRAIL_LEN, CHAFF_PK_PENALTY, FLARE_PK_PENALTY
 from geo import haversine, bearing, slant_range_km
 
 
@@ -31,8 +31,10 @@ class WeaponDef:
     base_pk:      float
     is_gun:       bool
     description:  str
-    domain:       str     # "air", "ground", or "both"
-    damage:       float   # Amount of HP to remove (0.0 to 1.0)
+    domain:       str     
+    damage:       float   
+    reload_time_s: float  
+    eccm:         float   
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,8 @@ class PlatformDef:
     speed_kmh:         float
     ceiling_ft:        int
     ecm_rating:        float
+    chaff_capacity:    int
+    flare_capacity:    int
     fuel_capacity_kg:  float
     fuel_burn_rate_kg_h: float
     radar_range_km:    float
@@ -54,6 +58,17 @@ class PlatformDef:
     player_side:       str              
     rcs_m2:            float            
     cruise_alt_ft:     float            
+
+
+@dataclass
+class Mission:
+    name: str
+    mission_type: str        # e.g., "CAP", "STRIKE", "PATROL", "RTB"
+    target_lat: float
+    target_lon: float
+    radius_km: float
+    altitude_ft: float
+    rtb_fuel_pct: float      # E.g. 0.25 = RTB at 25% fuel
 
 
 # ── Runtime classes ──────────────────────────────────────────────────────────
@@ -90,11 +105,23 @@ class Missile:
 
         if dist <= move_dist:
             dist_penalty = (self.launch_dist / 50.0) * 0.10
-            pk = self.wdef.base_pk - dist_penalty - self.target.platform.ecm_rating
+            pk = self.wdef.base_pk - dist_penalty 
+
+            if self.target.is_jamming and self.target.platform.ecm_rating > 0:
+                if self.wdef.seeker in ("ARH", "SARH"):
+                    ecm_effect = max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
+                    pk -= ecm_effect
+
+            if self.wdef.seeker in ("ARH", "SARH") and self.target.chaff > 0:
+                self.target.chaff -= 1
+                pk -= CHAFF_PK_PENALTY
+            elif self.wdef.seeker == "IR" and self.target.flare > 0:
+                self.target.flare -= 1
+                pk -= FLARE_PK_PENALTY
+
             pk = max(MIN_PK, min(MAX_PK, pk))
 
             if random.random() <= pk:
-                # Apply partial damage instead of binary kill
                 self.target.take_damage(self.wdef.damage)
                 self.status = "HIT"
             else:
@@ -114,7 +141,11 @@ class Missile:
     def estimated_pk(self) -> float:
         dist        = slant_range_km(self.lat, self.lon, self.altitude_ft, self.target.lat, self.target.lon, self.target.altitude_ft)
         dist_penalty = (dist / 50.0) * 0.10
-        pk = self.wdef.base_pk - dist_penalty - self.target.platform.ecm_rating
+        pk = self.wdef.base_pk - dist_penalty 
+        
+        ecm_effect = max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
+        pk -= ecm_effect
+        
         return max(MIN_PK, min(MAX_PK, pk))
 
 
@@ -133,7 +164,6 @@ class Unit:
         self.image_path = image_path
         self.fuel_kg    = platform.fuel_capacity_kg
 
-        # Damage mechanics
         self.hp: float = 1.0
         self.damage_state: str = "OK"
 
@@ -144,6 +174,16 @@ class Unit:
         self.flash_frames = 0
         self.selected_weapon: Optional[str] = None
         self.auto_engage = True if platform.unit_type in ("tank", "ifv", "apc", "recon", "tank_destroyer", "sam") else False
+        
+        # Doctrine & Mission
+        self.roe: str = "FREE" if side == "Red" else "TIGHT"  # FREE, TIGHT, HOLD
+        self.mission: Optional[Mission] = None
+
+        self.is_jamming: bool = False
+        self.chaff: int = platform.chaff_capacity
+        self.flare: int = platform.flare_capacity
+
+        self.weapon_cooldowns: dict[str, float] = {k: 0.0 for k in self.loadout.keys()}
 
         self.altitude_ft: float = platform.cruise_alt_ft
         self.target_altitude_ft: float = self.altitude_ft
@@ -151,7 +191,6 @@ class Unit:
         self.home_lat: float = lat
         self.home_lon: float = lon
 
-        self.ai_state: str   = "patrol"
         self.ai_fire_cooldown: float = 0.0
 
         self._surface: Optional[pygame.Surface] = None
@@ -162,7 +201,6 @@ class Unit:
 
     @property
     def performance_mult(self) -> float:
-        """Returns a scalar (0.0 to 1.0) applied to speed and sensor range based on damage."""
         if self.damage_state == "OK": return 1.0
         if self.damage_state == "LIGHT": return 0.8
         if self.damage_state == "MODERATE": return 0.6
@@ -175,6 +213,7 @@ class Unit:
         
         if self.hp <= 0.0:
             self.damage_state = "KILLED"
+            self.is_jamming = False 
         elif self.hp <= 0.25:
             self.damage_state = "HEAVY"
         elif self.hp <= 0.50:
@@ -198,6 +237,10 @@ class Unit:
     def update(self, sim_delta: float) -> None:
         if not self.alive: return
         
+        for k in self.weapon_cooldowns:
+            if self.weapon_cooldowns[k] > 0:
+                self.weapon_cooldowns[k] = max(0.0, self.weapon_cooldowns[k] - sim_delta)
+        
         if self.altitude_ft != self.target_altitude_ft:
             climb_rate_fps = 166.67 * self.performance_mult
             alt_diff = self.target_altitude_ft - self.altitude_ft
@@ -208,7 +251,6 @@ class Unit:
                 self.altitude_ft += math.copysign(step, alt_diff)
 
         if self.waypoints:
-            # Apply damage state to platform speed
             speed_kms    = (self.platform.speed_kmh * self.performance_mult) / 3600.0
             dist_budget  = speed_kms * sim_delta
 
@@ -237,7 +279,7 @@ class Unit:
             self.fuel_kg -= burn_per_sec * sim_delta
             if self.fuel_kg <= 0:
                 self.fuel_kg = 0
-                self.take_damage(999.0) # Crashed/abandoned due to fuel starvation
+                self.take_damage(999.0) 
 
     def has_ammo(self, weapon_key: str) -> bool:
         return self.loadout.get(weapon_key, 0) > 0
@@ -273,45 +315,45 @@ class Unit:
 # ── Embedded databases ───────────────────────────────────────────────────────
 
 _WEAPONS_DATA = {
-    "R-27R":   {"display_name": "R-27R Alamo-A",      "seeker": "SARH",   "range_km": 73,  "min_range_km": 3,   "speed_kmh": 3000, "base_pk": 0.82, "is_gun": False, "domain": "air", "damage": 0.6, "description": "Semi-active radar homing BVR missile"},
-    "R-27T":   {"display_name": "R-27T Alamo-B",      "seeker": "IR",     "range_km": 70,  "min_range_km": 3,   "speed_kmh": 3000, "base_pk": 0.80, "is_gun": False, "domain": "air", "damage": 0.6, "description": "Infrared-homing variant of the Alamo"},
-    "R-77":    {"display_name": "R-77 Adder",         "seeker": "ARH",    "range_km": 110, "min_range_km": 3,   "speed_kmh": 3600, "base_pk": 0.84, "is_gun": False, "domain": "air", "damage": 0.7, "description": "Active radar homing BVR missile"},
-    "R-73":    {"display_name": "R-73 Archer",        "seeker": "IR",     "range_km": 30,  "min_range_km": 0.5, "speed_kmh": 2500, "base_pk": 0.88, "is_gun": False, "domain": "air", "damage": 0.5, "description": "High-agility short-range IR missile"},
-    "R-60":    {"display_name": "R-60 Aphid",         "seeker": "IR",     "range_km": 8,   "min_range_km": 0.3, "speed_kmh": 2200, "base_pk": 0.72, "is_gun": False, "domain": "air", "damage": 0.4, "description": "Short-range IR dogfight missile (older)"},
-    "AIM-120C":{"display_name": "AIM-120C AMRAAM",    "seeker": "ARH",    "range_km": 105, "min_range_km": 3,   "speed_kmh": 3600, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 0.7, "description": "NATO standard active radar BVR missile"},
-    "AIM-9X":  {"display_name": "AIM-9X Sidewinder",  "seeker": "IR",     "range_km": 35,  "min_range_km": 0.5, "speed_kmh": 2700, "base_pk": 0.90, "is_gun": False, "domain": "air", "damage": 0.6, "description": "High off-boresight IR dogfight missile"},
-    "AIM-9M":  {"display_name": "AIM-9M Sidewinder",  "seeker": "IR",     "range_km": 18,  "min_range_km": 0.5, "speed_kmh": 2500, "base_pk": 0.82, "is_gun": False, "domain": "air", "damage": 0.5, "description": "Older IR dogfight missile, widely used"},
-    "MICA-EM": {"display_name": "MICA EM",            "seeker": "ARH",    "range_km": 80,  "min_range_km": 0.5, "speed_kmh": 4000, "base_pk": 0.86, "is_gun": False, "domain": "air", "damage": 0.6, "description": "French active radar BVR/WVR missile"},
-    "MICA-IR": {"display_name": "MICA IR",            "seeker": "IR",     "range_km": 60,  "min_range_km": 0.5, "speed_kmh": 4000, "base_pk": 0.87, "is_gun": False, "domain": "air", "damage": 0.6, "description": "French IR BVR/WVR missile"},
+    "R-27R":   {"display_name": "R-27R Alamo-A",      "seeker": "SARH",   "range_km": 73,  "min_range_km": 3,   "speed_kmh": 3000, "base_pk": 0.82, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.1, "description": "Semi-active radar homing BVR missile"},
+    "R-27T":   {"display_name": "R-27T Alamo-B",      "seeker": "IR",     "range_km": 70,  "min_range_km": 3,   "speed_kmh": 3000, "base_pk": 0.80, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.1, "description": "Infrared-homing variant of the Alamo"},
+    "R-77":    {"display_name": "R-77 Adder",         "seeker": "ARH",    "range_km": 110, "min_range_km": 3,   "speed_kmh": 3600, "base_pk": 0.84, "is_gun": False, "domain": "air", "damage": 0.7, "eccm": 0.2, "description": "Active radar homing BVR missile"},
+    "R-73":    {"display_name": "R-73 Archer",        "seeker": "IR",     "range_km": 30,  "min_range_km": 0.5, "speed_kmh": 2500, "base_pk": 0.88, "is_gun": False, "domain": "air", "damage": 0.5, "eccm": 0.15,"description": "High-agility short-range IR missile"},
+    "R-60":    {"display_name": "R-60 Aphid",         "seeker": "IR",     "range_km": 8,   "min_range_km": 0.3, "speed_kmh": 2200, "base_pk": 0.72, "is_gun": False, "domain": "air", "damage": 0.4, "eccm": 0.05,"description": "Short-range IR dogfight missile (older)"},
+    "AIM-120C":{"display_name": "AIM-120C AMRAAM",    "seeker": "ARH",    "range_km": 105, "min_range_km": 3,   "speed_kmh": 3600, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 0.7, "eccm": 0.2, "description": "NATO standard active radar BVR missile"},
+    "AIM-9X":  {"display_name": "AIM-9X Sidewinder",  "seeker": "IR",     "range_km": 35,  "min_range_km": 0.5, "speed_kmh": 2700, "base_pk": 0.90, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.2, "description": "High off-boresight IR dogfight missile"},
+    "AIM-9M":  {"display_name": "AIM-9M Sidewinder",  "seeker": "IR",     "range_km": 18,  "min_range_km": 0.5, "speed_kmh": 2500, "base_pk": 0.82, "is_gun": False, "domain": "air", "damage": 0.5, "eccm": 0.1, "description": "Older IR dogfight missile, widely used"},
+    "MICA-EM": {"display_name": "MICA EM",            "seeker": "ARH",    "range_km": 80,  "min_range_km": 0.5, "speed_kmh": 4000, "base_pk": 0.86, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.2, "description": "French active radar BVR/WVR missile"},
+    "MICA-IR": {"display_name": "MICA IR",            "seeker": "IR",     "range_km": 60,  "min_range_km": 0.5, "speed_kmh": 4000, "base_pk": 0.87, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.2, "description": "French IR BVR/WVR missile"},
     
-    "48N6":    {"display_name": "48N6E (S-400)",      "seeker": "SARH",   "range_km": 250, "min_range_km": 5,   "speed_kmh": 7000, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 1.0, "description": "Long-range heavy SAM"},
-    "9M317":   {"display_name": "9M317 (Buk-M2)",     "seeker": "SARH",   "range_km": 45,  "min_range_km": 3,   "speed_kmh": 4000, "base_pk": 0.80, "is_gun": False, "domain": "air", "damage": 0.8, "description": "Medium-range tactical SAM"},
-    "9M331":   {"display_name": "9M331 (Tor-M1)",     "seeker": "ARH",    "range_km": 15,  "min_range_km": 1,   "speed_kmh": 2800, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 0.6, "description": "Short-range point defense SAM"},
-    "PAC-3":   {"display_name": "MIM-104F PAC-3",     "seeker": "ARH",    "range_km": 100, "min_range_km": 3,   "speed_kmh": 5000, "base_pk": 0.90, "is_gun": False, "domain": "air", "damage": 1.0, "description": "High-velocity hit-to-kill SAM"},
-    "AIM-120_SAM": {"display_name": "AIM-120 (NASAMS)","seeker": "ARH",   "range_km": 30,  "min_range_km": 2,   "speed_kmh": 3500, "base_pk": 0.88, "is_gun": False, "domain": "air", "damage": 0.7, "description": "Ground-launched AMRAAM"},
-    "IRIS-T":  {"display_name": "IRIS-T SLM",         "seeker": "IR",     "range_km": 40,  "min_range_km": 1,   "speed_kmh": 3500, "base_pk": 0.92, "is_gun": False, "domain": "air", "damage": 0.7, "description": "Highly agile imaging IR SAM"},
-    "Gepard_35": {"display_name": "35mm Oerlikon KDA", "seeker": "CANNON","range_km": 4.0, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.70, "is_gun": True,  "domain": "both","damage": 0.2, "description": "Twin 35mm SPAAG"},
+    "48N6":    {"display_name": "48N6E (S-400)",      "seeker": "SARH",   "range_km": 250, "min_range_km": 5,   "speed_kmh": 7000, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 1.0, "eccm": 0.2, "description": "Long-range heavy SAM"},
+    "9M317":   {"display_name": "9M317 (Buk-M2)",     "seeker": "SARH",   "range_km": 45,  "min_range_km": 3,   "speed_kmh": 4000, "base_pk": 0.80, "is_gun": False, "domain": "air", "damage": 0.8, "eccm": 0.15,"description": "Medium-range tactical SAM"},
+    "9M331":   {"display_name": "9M331 (Tor-M1)",     "seeker": "ARH",    "range_km": 15,  "min_range_km": 1,   "speed_kmh": 2800, "base_pk": 0.85, "is_gun": False, "domain": "air", "damage": 0.6, "eccm": 0.15,"description": "Short-range point defense SAM"},
+    "PAC-3":   {"display_name": "MIM-104F PAC-3",     "seeker": "ARH",    "range_km": 100, "min_range_km": 3,   "speed_kmh": 5000, "base_pk": 0.90, "is_gun": False, "domain": "air", "damage": 1.0, "eccm": 0.25,"description": "High-velocity hit-to-kill SAM"},
+    "AIM-120_SAM": {"display_name": "AIM-120 (NASAMS)","seeker": "ARH",   "range_km": 30,  "min_range_km": 2,   "speed_kmh": 3500, "base_pk": 0.88, "is_gun": False, "domain": "air", "damage": 0.7, "eccm": 0.2, "description": "Ground-launched AMRAAM"},
+    "IRIS-T":  {"display_name": "IRIS-T SLM",         "seeker": "IR",     "range_km": 40,  "min_range_km": 1,   "speed_kmh": 3500, "base_pk": 0.92, "is_gun": False, "domain": "air", "damage": 0.7, "eccm": 0.2, "description": "Highly agile imaging IR SAM"},
+    "Gepard_35": {"display_name": "35mm Oerlikon KDA", "seeker": "CANNON","range_km": 4.0, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.70, "is_gun": True,  "domain": "both","damage": 0.2, "eccm": 0.1, "description": "Twin 35mm SPAAG"},
     
-    "Kh-25ML": {"display_name": "Kh-25ML (laser AGM)","seeker": "LASER",  "range_km": 25,  "min_range_km": 2,   "speed_kmh": 1800, "base_pk": 0.78, "is_gun": False, "domain": "ground", "damage": 0.8, "description": "Laser-guided air-to-ground missile"},
-    "S-8":     {"display_name": "S-8 Rockets (pod)",  "seeker": "CANNON", "range_km": 2,   "min_range_km": 0.2, "speed_kmh": 1200, "base_pk": 0.60, "is_gun": True,  "domain": "ground", "damage": 0.4, "description": "Unguided rocket pod, short-range saturation"},
-    "Shturm":  {"display_name": "9M114 Shturm ATGM",  "seeker": "SACLOS", "range_km": 5,   "min_range_km": 0.4, "speed_kmh": 600,  "base_pk": 0.75, "is_gun": False, "domain": "ground", "damage": 0.7, "description": "Semi-active ATGM, Mi-24 primary weapon"},
+    "Kh-25ML": {"display_name": "Kh-25ML (laser AGM)","seeker": "LASER",  "range_km": 25,  "min_range_km": 2,   "speed_kmh": 1800, "base_pk": 0.78, "is_gun": False, "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "Laser-guided air-to-ground missile"},
+    "S-8":     {"display_name": "S-8 Rockets (pod)",  "seeker": "CANNON", "range_km": 2,   "min_range_km": 0.2, "speed_kmh": 1200, "base_pk": 0.60, "is_gun": True,  "domain": "ground", "damage": 0.4, "eccm": 0.1, "description": "Unguided rocket pod, short-range saturation"},
+    "Shturm":  {"display_name": "9M114 Shturm ATGM",  "seeker": "SACLOS", "range_km": 5,   "min_range_km": 0.4, "speed_kmh": 600,  "base_pk": 0.75, "is_gun": False, "domain": "ground", "damage": 0.7, "eccm": 0.1, "description": "Semi-active ATGM, Mi-24 primary weapon"},
     
-    "GSh-30-1":{"display_name": "GSh-30-1 (30mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.65, "is_gun": True,  "domain": "both", "damage": 0.2, "description": "30mm single-barrel aircraft cannon"},
-    "GSh-30-2":{"display_name": "GSh-30-2 (twin 30mm)","seeker":"CANNON", "range_km": 1.2, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.68, "is_gun": True,  "domain": "both", "damage": 0.25,"description": "Twin-barrel 30mm cannon (Su-25)"},
-    "GSh-6-23":{"display_name": "GSh-6-23 (23mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.62, "is_gun": True,  "domain": "both", "damage": 0.15,"description": "6-barrel 23mm rotary cannon (Su-24)"},
-    "M61A1":   {"display_name": "M61A1 Vulcan (20mm)", "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.65, "is_gun": True,  "domain": "both", "damage": 0.15,"description": "20mm six-barrel rotary cannon"},
-    "DEFA-554":{"display_name": "DEFA 554 (30mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.64, "is_gun": True,  "domain": "both", "damage": 0.2, "description": "30mm revolver cannon (Mirage 2000)"},
-    "Yak-B":   {"display_name": "Yak-B (12.7mm)",     "seeker": "CANNON", "range_km": 0.6, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.55, "is_gun": True,  "domain": "both", "damage": 0.1, "description": "12.7mm four-barrel rotary (Mi-24 chin gun)"},
+    "GSh-30-1":{"display_name": "GSh-30-1 (30mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.65, "is_gun": True,  "domain": "both", "damage": 0.2, "eccm": 0.1, "description": "30mm single-barrel aircraft cannon"},
+    "GSh-30-2":{"display_name": "GSh-30-2 (twin 30mm)","seeker":"CANNON", "range_km": 1.2, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.68, "is_gun": True,  "domain": "both", "damage": 0.25,"eccm": 0.1, "description": "Twin-barrel 30mm cannon (Su-25)"},
+    "GSh-6-23":{"display_name": "GSh-6-23 (23mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.62, "is_gun": True,  "domain": "both", "damage": 0.15,"eccm": 0.1, "description": "6-barrel 23mm rotary cannon (Su-24)"},
+    "M61A1":   {"display_name": "M61A1 Vulcan (20mm)", "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.65, "is_gun": True,  "domain": "both", "damage": 0.15,"eccm": 0.1, "description": "20mm six-barrel rotary cannon"},
+    "DEFA-554":{"display_name": "DEFA 554 (30mm)",    "seeker": "CANNON", "range_km": 0.8, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.64, "is_gun": True,  "domain": "both", "damage": 0.2, "eccm": 0.1, "description": "30mm revolver cannon (Mirage 2000)"},
+    "Yak-B":   {"display_name": "Yak-B (12.7mm)",     "seeker": "CANNON", "range_km": 0.6, "min_range_km": 0.1, "speed_kmh": 0,    "base_pk": 0.55, "is_gun": True,  "domain": "both", "damage": 0.1, "eccm": 0.1, "description": "12.7mm four-barrel rotary (Mi-24 chin gun)"},
     
-    "GUN_125":     {"display_name": "125mm APFSDS",         "seeker": "CANNON", "range_km": 4.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.80, "is_gun": True,  "domain": "ground", "damage": 0.8, "description": "125mm smoothbore tank gun (T-64/72/80)"},
-    "GUN_120NATO": {"display_name": "120mm NATO APFSDS",    "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "domain": "ground", "damage": 0.8, "description": "120mm NATO smoothbore gun (Leopard 2, M1 Abrams)"},
-    "GUN_120UK":   {"display_name": "120mm L30A1 (rifled)", "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "domain": "ground", "damage": 0.8, "description": "120mm rifled gun (Challenger 2)"},
-    "GUN_105":     {"display_name": "105mm APFSDS",         "seeker": "CANNON", "range_km": 3.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.76, "is_gun": True,  "domain": "ground", "damage": 0.7, "description": "105mm L7/M68 rifled gun (Leopard 1, M113-derived)"},
-    "AUTOCANNON_30": {"display_name": "30mm Autocannon",    "seeker": "CANNON", "range_km": 2.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.70, "is_gun": True,  "domain": "ground", "damage": 0.25,"description": "30mm 2A42/Mk 44 autocannon (BMP-2, Marder, CV90)"},
-    "AUTOCANNON_25": {"display_name": "25mm M242 Bushmaster","seeker": "CANNON","range_km": 2.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.68, "is_gun": True,  "domain": "ground", "damage": 0.2, "description": "25mm chain gun (Bradley M2/M3)"},
-    "ATGM_Konkurs": {"display_name": "9M113 Konkurs ATGM",  "seeker": "SACLOS", "range_km": 4.0, "min_range_km": 0.5, "speed_kmh": 200, "base_pk": 0.78, "is_gun": False, "domain": "ground", "damage": 0.8, "description": "Wire-guided ATGM (BMP-2, 9P148)"},
-    "ATGM_TOW":    {"display_name": "BGM-71 TOW ATGM",      "seeker": "SACLOS", "range_km": 3.7, "min_range_km": 0.3, "speed_kmh": 300, "base_pk": 0.80, "is_gun": False, "domain": "ground", "damage": 0.8, "description": "Wire-guided TOW missile (Bradley, M113)"},
-    "ATGM_Stugna": {"display_name": "Stugna-P ATGM",        "seeker": "LASER",  "range_km": 5.5, "min_range_km": 0.1, "speed_kmh": 400, "base_pk": 0.82, "is_gun": False, "domain": "ground", "damage": 0.85,"description": "Ukrainian laser-guided ATGM (AMX-10 RC, BMP-1U)"},
+    "GUN_125":     {"display_name": "125mm APFSDS",         "seeker": "CANNON", "range_km": 4.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.80, "is_gun": True,  "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "125mm smoothbore tank gun (T-64/72/80)"},
+    "GUN_120NATO": {"display_name": "120mm NATO APFSDS",    "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "120mm NATO smoothbore gun (Leopard 2, M1 Abrams)"},
+    "GUN_120UK":   {"display_name": "120mm L30A1 (rifled)", "seeker": "CANNON", "range_km": 4.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.82, "is_gun": True,  "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "120mm rifled gun (Challenger 2)"},
+    "GUN_105":     {"display_name": "105mm APFSDS",         "seeker": "CANNON", "range_km": 3.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.76, "is_gun": True,  "domain": "ground", "damage": 0.7, "eccm": 0.1, "description": "105mm L7/M68 rifled gun (Leopard 1, M113-derived)"},
+    "AUTOCANNON_30": {"display_name": "30mm Autocannon",    "seeker": "CANNON", "range_km": 2.5, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.70, "is_gun": True,  "domain": "ground", "damage": 0.25,"eccm": 0.1, "description": "30mm 2A42/Mk 44 autocannon (BMP-2, Marder, CV90)"},
+    "AUTOCANNON_25": {"display_name": "25mm M242 Bushmaster","seeker": "CANNON","range_km": 2.0, "min_range_km": 0.1, "speed_kmh": 0, "base_pk": 0.68, "is_gun": True,  "domain": "ground", "damage": 0.2, "eccm": 0.1, "description": "25mm chain gun (Bradley M2/M3)"},
+    "ATGM_Konkurs": {"display_name": "9M113 Konkurs ATGM",  "seeker": "SACLOS", "range_km": 4.0, "min_range_km": 0.5, "speed_kmh": 200, "base_pk": 0.78, "is_gun": False, "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "Wire-guided ATGM (BMP-2, 9P148)"},
+    "ATGM_TOW":    {"display_name": "BGM-71 TOW ATGM",      "seeker": "SACLOS", "range_km": 3.7, "min_range_km": 0.3, "speed_kmh": 300, "base_pk": 0.80, "is_gun": False, "domain": "ground", "damage": 0.8, "eccm": 0.1, "description": "Wire-guided TOW missile (Bradley, M113)"},
+    "ATGM_Stugna": {"display_name": "Stugna-P ATGM",        "seeker": "LASER",  "range_km": 5.5, "min_range_km": 0.1, "speed_kmh": 400, "base_pk": 0.82, "is_gun": False, "domain": "ground", "damage": 0.85,"eccm": 0.1, "description": "Ukrainian laser-guided ATGM (AMX-10 RC, BMP-1U)"},
 }
 
 _PLATFORMS_DATA = {
@@ -642,7 +684,9 @@ class Database:
                 is_gun       = d["is_gun"],
                 description  = d["description"],
                 domain       = d.get("domain", "both"),
-                damage       = float(d.get("damage", 0.6)), # Standardize arbitrary default
+                damage       = float(d.get("damage", 0.6)),
+                reload_time_s = float(d.get("reload_time_s", 0.5 if d.get("is_gun") else 3.0)),
+                eccm         = float(d.get("eccm", 0.1)),
             )
 
         if units_path and os.path.exists(units_path):
@@ -660,6 +704,8 @@ class Database:
                 speed_kmh         = d["speed_kmh"],
                 ceiling_ft        = d["ceiling_ft"],
                 ecm_rating        = d["ecm_rating"],
+                chaff_capacity    = int(d.get("chaff_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter") else 0)),
+                flare_capacity    = int(d.get("flare_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter") else 0)),
                 fuel_capacity_kg  = d.get("fuel_capacity_kg", 5000.0),    
                 fuel_burn_rate_kg_h = d.get("fuel_burn_rate_kg_h", 1500.0),
                 radar_range_km    = d["radar"]["range_km"],
@@ -700,6 +746,20 @@ def load_scenario(path: str, db: Database) -> tuple[list[Unit], dict]:
             loadout    = loadout,
             image_path = ud.get("image_path"),
         )
+        
+        unit.roe = ud.get("roe", "FREE" if unit.side == "Red" else "TIGHT")
+        mdata = ud.get("mission")
+        if mdata:
+            unit.mission = Mission(
+                name=mdata["name"],
+                mission_type=mdata["type"],
+                target_lat=mdata["lat"],
+                target_lon=mdata["lon"],
+                radius_km=mdata["radius"],
+                altitude_ft=mdata["alt"],
+                rtb_fuel_pct=mdata["rtb_fuel"]
+            )
+            
         for wp in ud.get("waypoints", []):
             unit.add_waypoint(wp[0], wp[1])
 
@@ -718,7 +778,7 @@ def save_scenario(path: str, units: list[Unit], meta: dict,
                   game_time: float = 0.0) -> None:
     units_data = []
     for u in units:
-        units_data.append({
+        entry = {
             "id":         u.uid,
             "platform":   u.platform.key,
             "callsign":   u.callsign,
@@ -727,9 +787,21 @@ def save_scenario(path: str, units: list[Unit], meta: dict,
             "lon":        round(u.lon, 6),
             "image_path": u.image_path,
             "loadout":    u.loadout,
+            "roe":        u.roe,
             "waypoints":  [[round(lat, 6), round(lon, 6)]
                            for lat, lon in u.waypoints],
-        })
+        }
+        if u.mission:
+            entry["mission"] = {
+                "name": u.mission.name,
+                "type": u.mission.mission_type,
+                "lat": round(u.mission.target_lat, 6),
+                "lon": round(u.mission.target_lon, 6),
+                "radius": round(u.mission.radius_km, 2),
+                "alt": round(u.mission.altitude_ft, 2),
+                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2)
+            }
+        units_data.append(entry)
 
     payload = {
         **meta,
@@ -739,3 +811,78 @@ def save_scenario(path: str, units: list[Unit], meta: dict,
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
+
+def save_deployment(path: str, units: list[Unit]) -> None:
+    units_data = []
+    for u in units:
+        if u.side != "Blue": continue
+        entry = {
+            "id":         u.uid,
+            "platform":   u.platform.key,
+            "callsign":   u.callsign,
+            "side":       u.side,
+            "lat":        round(u.lat, 6),
+            "lon":        round(u.lon, 6),
+            "image_path": u.image_path,
+            "loadout":    u.loadout,
+            "roe":        u.roe,
+            "waypoints":  [[round(lat, 6), round(lon, 6)]
+                           for lat, lon in u.waypoints],
+        }
+        if u.mission:
+            entry["mission"] = {
+                "name": u.mission.name,
+                "type": u.mission.mission_type,
+                "lat": round(u.mission.target_lat, 6),
+                "lon": round(u.mission.target_lon, 6),
+                "radius": round(u.mission.radius_km, 2),
+                "alt": round(u.mission.altitude_ft, 2),
+                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2)
+            }
+        units_data.append(entry)
+        
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"deployment": units_data}, fh, indent=2)
+
+def load_deployment(path: str, db: Database) -> list[Unit]:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    
+    units: list[Unit] = []
+    for ud in data.get("deployment", []):
+        platform_key = ud["platform"]
+        platform     = db.platforms.get(platform_key)
+        if platform is None:
+            continue
+
+        loadout = ud.get("loadout", platform.default_loadout)
+
+        unit = Unit(
+            uid        = ud["id"], 
+            callsign   = ud["callsign"],
+            lat        = ud["lat"],
+            lon        = ud["lon"],
+            side       = ud["side"],
+            platform   = platform,
+            loadout    = loadout,
+            image_path = ud.get("image_path"),
+        )
+        
+        unit.roe = ud.get("roe", "TIGHT")
+        mdata = ud.get("mission")
+        if mdata:
+            unit.mission = Mission(
+                name=mdata["name"],
+                mission_type=mdata["type"],
+                target_lat=mdata["lat"],
+                target_lon=mdata["lon"],
+                radius_km=mdata["radius"],
+                altitude_ft=mdata["alt"],
+                rtb_fuel_pct=mdata["rtb_fuel"]
+            )
+            
+        for wp in ud.get("waypoints", []):
+            unit.add_waypoint(wp[0], wp[1])
+        units.append(unit)
+    return units

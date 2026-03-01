@@ -37,3 +37,8 @@ MISSILE_TRAIL_LEN = 24
 HIT_FLASH_FRAMES  = 12
 MIN_PK            = 0.05
 MAX_PK            = 0.95
+
+# ── Electronic Warfare & Countermeasures ──────────────────────────────────────
+BURNTHROUGH_RANGE_KM = 15.0  # Radar overpowers jamming if target is within this range
+CHAFF_PK_PENALTY     = 0.25  # Pk reduction per dispensed chaff bundle
+FLARE_PK_PENALTY     = 0.25  # Pk reduction per dispensed flare

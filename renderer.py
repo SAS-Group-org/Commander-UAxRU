@@ -45,8 +45,11 @@ class Renderer:
         contacts = blue_contacts or {}
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
-        self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h)
-        self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h)
+        
+        # Pass show_all_enemies to radar and routes
+        self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
+        self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
+        
         self._draw_missiles(cam_px, cam_py, zoom, missiles, win_w, map_h)
         self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h,
                          contacts, show_all_enemies)
@@ -74,21 +77,33 @@ class Renderer:
                     pygame.draw.rect(self.surface, (28, 38, 48), (bx, by, TILE_SIZE, TILE_SIZE))
                     pygame.draw.rect(self.surface, (40, 54, 68), (bx, by, TILE_SIZE, TILE_SIZE), 1)
 
-    def _draw_radar_rings(self, cam_px, cam_py, zoom, units, win_w, map_h) -> None:
+    def _draw_radar_rings(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
             if not unit.alive: continue
-            if unit.side == "Red": continue         
+            
+            # Hide Red team radar if Fog of War is ON
+            if unit.side == "Red" and not show_all_enemies: 
+                continue         
+                
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             lat2 = unit.lat + (unit.platform.radar_range_km / 111.32)
             _, py1 = lat_lon_to_pixel(unit.lat, unit.lon, zoom)
             _, py2 = lat_lon_to_pixel(lat2,     unit.lon, zoom)
             radius = int(abs(py1 - py2))
+            
             if 2 <= radius <= 4000:
-                pygame.draw.circle(self.surface, RADAR_RING_COLOR, (int(sx), int(sy)), radius, 1)
+                # Use standard cyan for Blue, and a dark red for Red radars
+                color = RADAR_RING_COLOR if unit.side == "Blue" else (160, 50, 50)
+                pygame.draw.circle(self.surface, color, (int(sx), int(sy)), radius, 1)
 
-    def _draw_routes(self, cam_px, cam_py, zoom, units, win_w, map_h) -> None:
+    def _draw_routes(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
             if not unit.alive or not unit.waypoints: continue
+            
+            # Hide Red team routes if Fog of War is ON
+            if unit.side == "Red" and not show_all_enemies:
+                continue
+                
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             points = [(sx, sy)]
             for wlat, wlon in unit.waypoints:
