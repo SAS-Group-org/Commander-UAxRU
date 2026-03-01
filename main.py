@@ -33,7 +33,7 @@ import pygame_gui
 
 from constants import (
     WINDOW_WIDTH_DEFAULT, WINDOW_HEIGHT_DEFAULT,
-    BOTTOM_PANEL_HEIGHT, FPS, TIME_SPEEDS,
+    BOTTOM_PANEL_FRACTION, BOTTOM_PANEL_MIN_HEIGHT, FPS, TIME_SPEEDS,
 )
 from geo import lat_lon_to_pixel, pixel_to_lat_lon, world_to_screen
 from renderer import Renderer
@@ -56,7 +56,8 @@ def _next_uid(prefix: str = "u") -> str:
 # ── Camera ────────────────────────────────────────────────────────────────────
 
 def map_area_height(win_h: int) -> int:
-    return max(200, win_h - BOTTOM_PANEL_HEIGHT)
+    panel_h = max(BOTTOM_PANEL_MIN_HEIGHT, int(win_h * BOTTOM_PANEL_FRACTION))
+    return max(200, win_h - panel_h)
 
 
 class CameraState:

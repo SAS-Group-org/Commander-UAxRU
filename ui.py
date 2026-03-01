@@ -1,20 +1,4 @@
-# ui.py — GameUI  (setup mode + combat mode)
-#
-# Setup mode layout:
-#   ┌──────────────────────────────────┬──────────────────────────┐
-#   │  UNIT ROSTER  (UISelectionList)  │  Controls + Start Sim    │
-#   │  MiG-29 Fulcrum ×45             │  [Place on Map]          │
-#   │  Su-27 Flanker-B ×23            │  [Remove Selected]       │
-#   │  F-16AM Falcon ×23              │  [Clear All Blue]        │
-#   │  ...                            │  [▶ START SIMULATION]    │
-#   └──────────────────────────────────┴──────────────────────────┘
-#
-# Combat mode layout:
-#   ┌────────────┬──────────────────┬──────────────────────────────┐
-#   │  Unit info │  Weapon buttons  │  Speed btns + FOW + Log      │
-#   │  (col 1)   │  (col 2, click   │                              │
-#   │            │   to select)     │                              │
-#   └────────────┴──────────────────┴──────────────────────────────┘
+# ui.py — GameUI (setup mode + combat mode)
 
 from __future__ import annotations
 from typing import Optional
@@ -26,7 +10,7 @@ from pygame_gui.elements import (
     UITextEntryLine,
 )
 
-from constants import BOTTOM_PANEL_HEIGHT, TIME_SPEEDS, TIME_SPEED_LABELS, DEFAULT_SPEED_IDX
+from constants import BOTTOM_PANEL_FRACTION, BOTTOM_PANEL_MIN_HEIGHT, TIME_SPEEDS, TIME_SPEED_LABELS, DEFAULT_SPEED_IDX
 from scenario import Database, Unit
 from simulation import SimulationEngine
 
@@ -54,6 +38,7 @@ class GameUI:
         # Widget references (rebuilt on mode change / resize)
         self.manager:       pygame_gui.UIManager = None  # type: ignore
         self._panel:        UIPanel   = None             # type: ignore
+        
         # Setup widgets
         self._roster_list:  UISelectionList = None       # type: ignore
         self._setup_info:   UITextBox       = None       # type: ignore
@@ -62,6 +47,7 @@ class GameUI:
         self._clear_btn:    UIButton        = None       # type: ignore
         self._start_btn:    UIButton        = None       # type: ignore
         self._qty_entry:    UITextEntryLine = None       # type: ignore
+        
         # Combat widgets
         self._nav_box:      UITextBox      = None        # type: ignore
         self._log_box:      UITextBox      = None        # type: ignore
@@ -75,7 +61,6 @@ class GameUI:
 
     # ── Roster ────────────────────────────────────────────────────────────────
 
-    # Category display names and their unit_type values (in desired order)
     _CATEGORIES = [
         ("─── FIXED-WING ───",   ("fighter", "attacker")),
         ("─── ROTARY WING ───",  ("helicopter",)),
@@ -85,10 +70,9 @@ class GameUI:
         ("─── RECON ───",         ("recon",)),
         ("─── TANK DESTROY ───",  ("tank_destroyer",)),
     ]
-    _DIVIDER_PREFIX = "───"   # items whose keys start with this are non-selectable
+    _DIVIDER_PREFIX = "───" 
 
     def _build_roster_data(self) -> None:
-        """Populate _roster_items / _roster_keys grouped by category."""
         self._roster_items.clear()
         self._roster_keys.clear()
 
@@ -96,16 +80,14 @@ class GameUI:
                 if p.player_side == "Blue"}
 
         for header, types in self._CATEGORIES:
-            # collect platforms belonging to this category, sorted by fleet_count desc
             group = sorted(
                 [(k, p) for k, p in blue.items() if p.unit_type in types],
                 key=lambda x: -x[1].fleet_count,
             )
             if not group:
                 continue
-            # Header divider (key = header text so it starts with _DIVIDER_PREFIX)
             self._roster_items.append(header)
-            self._roster_keys.append(header)   # non-selectable; key == header
+            self._roster_keys.append(header)   
             for key, p in group:
                 label = f"  {p.display_name}  ×{p.fleet_count}"
                 self._roster_items.append(label)
@@ -130,8 +112,10 @@ class GameUI:
         self._weap_btns  = []
         self._weap_keys  = []
 
-        panel_y = self._win_h - BOTTOM_PANEL_HEIGHT
-        panel_h = BOTTOM_PANEL_HEIGHT
+        # Calculate dynamic scaling height based on the window size
+        panel_h = max(BOTTOM_PANEL_MIN_HEIGHT, int(self._win_h * BOTTOM_PANEL_FRACTION))
+        panel_y = self._win_h - panel_h
+        
         self._panel = UIPanel(
             relative_rect=pygame.Rect(0, panel_y, self._win_w, panel_h),
             manager=self.manager,
@@ -142,15 +126,13 @@ class GameUI:
         else:
             self._build_combat(panel_h)
 
-        self._last_log_len = -1   # force refresh
+        self._last_log_len = -1   
 
     def _build_setup(self, panel_h: int) -> None:
-        """Setup-mode widgets: roster list + controls."""
         roster_w  = max(300, int(self._win_w * 0.62))
         ctrl_x    = roster_w + _PAD * 2
         ctrl_w    = self._win_w - ctrl_x - _PAD
 
-        # Roster list (left column)
         self._roster_list = UISelectionList(
             relative_rect=pygame.Rect(_PAD, _PAD,
                                       roster_w, panel_h - _PAD * 2),
@@ -159,8 +141,8 @@ class GameUI:
             container=self._panel,
         )
 
-        # Right column — info text box + buttons
-        info_h = panel_h - (_BTN_H + _BTN_PAD) * 4 - _PAD * 3
+        # We need slightly less info height to fit the FOW button
+        info_h = panel_h - (_BTN_H + _BTN_PAD) * 5 - _PAD * 3
         self._setup_info = UITextBox(
             html_text=(
                 "<b>UNIT DEPLOYMENT</b><br>"
@@ -176,9 +158,8 @@ class GameUI:
 
         btn_y = info_h + _PAD * 2
 
-        # ── Row 1: Qty label + entry + Place on Map button (inline) ───────────
-        _LBL_W   = 28                          # "Qty:" label
-        _ENTRY_W = 52                          # digit entry box
+        _LBL_W   = 28                          
+        _ENTRY_W = 52                          
         _GAP     = _PAD
         place_w  = ctrl_w - _LBL_W - _ENTRY_W - _GAP * 2
 
@@ -208,10 +189,11 @@ class GameUI:
         )
         btn_y += _BTN_H + _BTN_PAD
 
-        # ── Rows 2-4: Remove / Clear / Start ─────────────────────────────────
+        # Added FOW toggle to the setup mode buttons
         for label, attr in [
             ("Remove Selected",     "_remove_btn"),
             ("Clear All Blue",      "_clear_btn"),
+            ("FOG OF WAR: ON",      "_fow_btn"),
             ("▶  START SIMULATION", "_start_btn"),
         ]:
             btn = UIButton(
@@ -224,13 +206,11 @@ class GameUI:
             btn_y += _BTN_H + _BTN_PAD
 
     def _build_combat(self, panel_h: int) -> None:
-        """Combat-mode widgets: unit info | weapon buttons | speed + log."""
         c1, c2, c3 = self._col_widths()
         col1_x = _PAD
         col2_x = col1_x + c1 + _PAD
         col3_x = col2_x + c2 + _PAD
 
-        # Col 1 — unit / status info
         self._nav_box = UITextBox(
             html_text="<b>STANDBY</b>",
             relative_rect=pygame.Rect(col1_x, _PAD, c1, panel_h - _PAD * 2),
@@ -238,8 +218,6 @@ class GameUI:
             container=self._panel,
         )
 
-        # Col 2 — weapon buttons (populated dynamically by rebuild_weapon_buttons)
-        # Header label always present
         UILabel(
             relative_rect=pygame.Rect(col2_x, _PAD, c2, 20),
             text="ARMAMENTS  (click to select)",
@@ -247,7 +225,6 @@ class GameUI:
             container=self._panel,
         )
 
-        # Col 3 top — time speed buttons
         n       = len(TIME_SPEED_LABELS)
         btn_w   = max(44, (c3 - _BTN_PAD * (n - 1)) // n)
         for i, label in enumerate(TIME_SPEED_LABELS):
@@ -259,7 +236,6 @@ class GameUI:
                 container=self._panel,
             ))
 
-        # Fog of War Toggle Button
         fow_y = _PAD + _BTN_H + _BTN_PAD
         self._fow_btn = UIButton(
             relative_rect=pygame.Rect(col3_x, fow_y, c3, _BTN_H),
@@ -268,7 +244,6 @@ class GameUI:
             container=self._panel,
         )
 
-        # Col 3 bottom — event log
         log_y = fow_y + _BTN_H + _BTN_PAD
         self._log_box = UITextBox(
             html_text="<b>EVENT LOG</b>",
@@ -283,7 +258,6 @@ class GameUI:
     # ── Dynamic weapon buttons ────────────────────────────────────────────────
 
     def rebuild_weapon_buttons(self, unit: Optional[Unit]) -> None:
-        """Recreate weapon buttons for the selected unit (call on unit change)."""
         for btn in self._weap_btns:
             btn.kill()
         self._weap_btns.clear()
@@ -295,7 +269,7 @@ class GameUI:
         _, c2, _ = self._col_widths()
         c1, _, _ = self._col_widths()
         col2_x   = _PAD + c1 + _PAD
-        start_y  = _PAD + 22   # below the header label
+        start_y  = _PAD + 22   
 
         for i, (wkey, qty) in enumerate(unit.loadout.items()):
             wdef     = self._db.weapons.get(wkey)
@@ -321,7 +295,6 @@ class GameUI:
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _parse_qty(self) -> int:
-        """Read the qty entry, clamp to [1, 20], default 1 on bad input."""
         if self._qty_entry is None:
             return 1
         try:
@@ -348,6 +321,11 @@ class GameUI:
         self.manager.process_events(event)
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            
+            # Common Buttons
+            if event.ui_element == self._fow_btn:
+                return {"type": "toggle_fow"}
+                
             # Setup buttons
             if self._mode == "setup":
                 if event.ui_element == self._place_btn:
@@ -355,7 +333,6 @@ class GameUI:
                            if self._roster_list else None)
                     if sel and sel in self._roster_items:
                         key = self._roster_keys[self._roster_items.index(sel)]
-                        # Skip divider headers — they are not real platforms
                         if key.startswith(self._DIVIDER_PREFIX):
                             return {"type": "place_unit_no_selection"}
                         qty = self._parse_qty()
@@ -375,10 +352,6 @@ class GameUI:
                     self._speed_idx = i
                     return {"type": "speed_change", "speed_idx": i}
             
-            # Fog of War button
-            if self._mode == "combat" and event.ui_element == self._fow_btn:
-                return {"type": "toggle_fow"}
-
             # Weapon select buttons
             for i, btn in enumerate(self._weap_btns):
                 if event.ui_element == btn:
@@ -397,7 +370,6 @@ class GameUI:
                show_all_enemies: bool = False) -> None:
 
         if self._mode == "setup":
-            # Update setup info pane
             if self._setup_info:
                 if placing_type:
                     p = self._db.platforms.get(placing_type)
@@ -445,15 +417,20 @@ class GameUI:
             if sim is None:
                 return
 
-            # Nav / unit info
             if selected and selected.alive:
                 p = selected.platform
                 wp = len(selected.waypoints)
+                
+                # Calculate fuel percentage and color code it
+                fuel_pct = (selected.fuel_kg / p.fuel_capacity_kg) * 100 if p.fuel_capacity_kg > 0 else 0
+                fuel_col = "#FF4444" if fuel_pct < 20 else "#FFAA00" if fuel_pct < 50 else "#FFFFFF"
+
                 self._nav_box.set_text(
                     f"<b>{selected.callsign}</b>  [{selected.side}]<br>"
                     f"<b>Type:</b> {p.display_name}<br>"
                     f"<b>Spd:</b> {p.speed_kmh:,} km/h  "
                     f"<b>Ceil:</b> {p.ceiling_ft:,} ft<br>"
+                    f"<b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)<br>"
                     f"<b>Radar:</b> {p.radar_type}  {p.radar_range_km} km<br>"
                     f"<b>HDG:</b> {selected.heading:05.1f}°  "
                     f"<b>ECM:</b> {int(p.ecm_rating*100)}%<br>"
@@ -474,7 +451,6 @@ class GameUI:
                     f"Right-click map to waypoint"
                 )
 
-            # Event log
             if len(sim.event_log) != self._last_log_len:
                 self._last_log_len = len(sim.event_log)
                 recent = list(reversed(list(sim.event_log)[-6:]))
@@ -482,9 +458,9 @@ class GameUI:
                     f'<font color="#90D090">› {e}</font>' for e in recent
                 ))
 
-            # Update FOW Button Text
-            if self._fow_btn:
-                self._fow_btn.set_text(f"FOG OF WAR: {'OFF' if show_all_enemies else 'ON'}")
+        # Update FOW Button Text (Common to both modes)
+        if self._fow_btn:
+            self._fow_btn.set_text(f"FOG OF WAR: {'OFF' if show_all_enemies else 'ON'}")
 
         self.manager.update(time_delta)
 
@@ -500,7 +476,6 @@ class GameUI:
         return self._mode
 
     def get_roster_selection(self) -> Optional[str]:
-        """Return platform key of currently highlighted roster item, or None."""
         if self._roster_list is None:
             return None
         sel = self._roster_list.get_single_selection()
