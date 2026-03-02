@@ -2,7 +2,9 @@
 #
 # Fixes vs previous version:
 #   • 4 concurrent download workers instead of 1 (main zoom fix)
-#   • Rotates a/b/c OSM subdomains to stay under rate limits
+#   • Rotates a/b/c/d subdomains to stay under rate limits
+#   • Switched to CARTO Voyager tiles for forced English (name:en) labels
+#   • Changed cache directory to "map_cache_en" to prevent mixing with old local-language tiles
 #   • Failed tiles are removed from _queued_tiles so they auto-retry
 #   • Tile coordinates are validated/wrapped before any request
 #   • Orphaned .tmp files are cleaned up at startup
@@ -15,7 +17,8 @@ import time
 import itertools
 import pygame
 
-CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "map_cache")
+# Changed cache directory so we don't mix old Cyrillic tiles with new English ones
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "map_cache_en")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # ── Clean up any orphaned temp files from a previous crashed run ─────────────
@@ -33,8 +36,8 @@ _queued_lock     = threading.Lock()
 _loaded_surfaces: dict[str, pygame.Surface] = {}  # key → Surface (LRU capped)
 _LRU_MAX         = 512
 
-# Round-robin subdomain iterator (thread-safe via itertools + GIL)
-_SUBDOMAINS = itertools.cycle(["a", "b", "c"])
+# CARTO supports a, b, c, and d subdomains
+_SUBDOMAINS = itertools.cycle(["a", "b", "c", "d"])
 
 _HEADERS = {
     "User-Agent": (
@@ -75,7 +78,9 @@ def _worker() -> None:
         try:
             if not os.path.exists(cache_path):
                 sub = next(_SUBDOMAINS)
-                url = f"https://{sub}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                # Swapped standard OSM for CARTO Voyager (OSM data, English labels)
+                url = f"https://{sub}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+                
                 r   = requests.get(url, headers=_HEADERS, timeout=10)
                 if r.status_code == 200:
                     with open(tmp_path, "wb") as fh:

@@ -46,7 +46,6 @@ class Renderer:
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
         
-        # Pass show_all_enemies to radar and routes
         self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         
@@ -79,28 +78,29 @@ class Renderer:
 
     def _draw_radar_rings(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
-            if not unit.alive: continue
+            if not unit.alive or unit.duty_state != "ACTIVE": continue
             
-            # Hide Red team radar if Fog of War is ON
             if unit.side == "Red" and not show_all_enemies: 
                 continue         
                 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
-            lat2 = unit.lat + (unit.platform.radar_range_km / 111.32)
+            
+            if unit.is_jamming:
+                pygame.draw.circle(self.surface, (255, 255, 0), (int(sx), int(sy)), 8, 1)
+
+            lat2 = unit.lat + ((unit.platform.radar_range_km * unit.performance_mult) / 111.32)
             _, py1 = lat_lon_to_pixel(unit.lat, unit.lon, zoom)
             _, py2 = lat_lon_to_pixel(lat2,     unit.lon, zoom)
             radius = int(abs(py1 - py2))
             
             if 2 <= radius <= 4000:
-                # Use standard cyan for Blue, and a dark red for Red radars
                 color = RADAR_RING_COLOR if unit.side == "Blue" else (160, 50, 50)
                 pygame.draw.circle(self.surface, color, (int(sx), int(sy)), radius, 1)
 
     def _draw_routes(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
-            if not unit.alive or not unit.waypoints: continue
+            if not unit.alive or not unit.waypoints or unit.duty_state != "ACTIVE": continue
             
-            # Hide Red team routes if Fog of War is ON
             if unit.side == "Red" and not show_all_enemies:
                 continue
                 
@@ -132,7 +132,7 @@ class Renderer:
     def _draw_units(self, cam_px, cam_py, zoom, units, win_w, map_h,
                    contacts: dict, show_all_enemies: bool) -> None:
         for unit in units:
-            if not unit.alive: continue
+            if not unit.alive or unit.duty_state != "ACTIVE": continue
             if unit.side == "Red" and not show_all_enemies: continue
 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
@@ -158,6 +158,8 @@ class Renderer:
                 elif utype == "recon": self._draw_recon_symbol(sx, sy, color)
                 elif utype == "tank_destroyer": self._draw_td_symbol(sx, sy, unit.heading, color)
                 elif utype == "sam": self._draw_sam_symbol(sx, sy, color)
+                elif utype == "airbase": self._draw_airbase_symbol(sx, sy, color)
+                elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
                 else: self._draw_jet_polygon(sx, sy, unit.heading, color)
 
             det_tag = " ◆" if unit.is_detected and unit.side == "Blue" else ""
@@ -175,8 +177,8 @@ class Renderer:
                 try:
                     img = pygame.image.load(path).convert_alpha()
                     self._img_cache[path] = pygame.transform.smoothscale(img, (32, 32))
-                except pygame.error: self._img_cache[path] = None   # type: ignore[assignment]
-            else: self._img_cache[path] = None       # type: ignore[assignment]
+                except pygame.error: self._img_cache[path] = None   
+            else: self._img_cache[path] = None       
         return self._img_cache.get(path)
 
     def _draw_jet_polygon(self, sx, sy, heading, color) -> None:
@@ -227,11 +229,20 @@ class Renderer:
         pygame.draw.line(self.surface, color, (int(sx),int(sy)), (int(ex),int(ey)), 2)
 
     def _draw_sam_symbol(self, sx, sy, color) -> None:
-        """Rectangle with a dome at the bottom (NATO Air Defense Symbol)."""
         hw, hh = 10, 7
         pygame.draw.rect(self.surface, color, (int(sx)-hw, int(sy)-hh, hw*2, hh*2), 2)
         rect = pygame.Rect(int(sx)-5, int(sy)+hh-5, 10, 10)
         pygame.draw.arc(self.surface, color, rect, 0, math.pi, 2)
+        
+    def _draw_airbase_symbol(self, sx, sy, color) -> None:
+        hw, hh = 12, 6
+        pygame.draw.rect(self.surface, color, (int(sx)-hw, int(sy)-hh, hw*2, hh*2), 2)
+        pygame.draw.line(self.surface, color, (int(sx)-hw, int(sy)), (int(sx)+hw, int(sy)), 1)
+        
+    def _draw_artillery_symbol(self, sx, sy, color) -> None:
+        hw, hh = 10, 7
+        pygame.draw.rect(self.surface, color, (int(sx)-hw, int(sy)-hh, hw*2, hh*2), 2)
+        pygame.draw.circle(self.surface, color, (int(sx), int(sy)), 3)
 
     def _draw_contacts(self, cam_px, cam_py, zoom,
                        contacts: dict, units: list,
@@ -284,6 +295,8 @@ class Renderer:
                     elif utype == "recon": self._draw_recon_symbol(sx, sy, color)
                     elif utype == "tank_destroyer": self._draw_td_symbol(sx, sy, unit.heading, color)
                     elif utype == "sam": self._draw_sam_symbol(sx, sy, color)
+                    elif utype == "airbase": self._draw_airbase_symbol(sx, sy, color)
+                    elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
                     else: self._draw_jet_polygon(sx, sy, unit.heading, color)
 
                 callsign_lbl = self._font_sm.render(unit.callsign, True, (0, 0, 0))

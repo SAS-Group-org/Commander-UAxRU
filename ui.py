@@ -29,6 +29,7 @@ class GameUI:
         self._mode       = "setup"        
         self._speed_idx  = DEFAULT_SPEED_IDX
         self._last_log_len = 0
+        self._last_parked_count = -1
 
         self._roster_items: list[str] = []   
         self._roster_keys:  list[str] = []   
@@ -41,6 +42,7 @@ class GameUI:
         self._place_btn:    UIButton        = None       # type: ignore
         self._remove_btn:   UIButton        = None       # type: ignore
         self._clear_btn:    UIButton        = None       # type: ignore
+        self._auto_deploy_btn: UIButton     = None       # type: ignore
         self._save_deploy_btn: UIButton     = None       # type: ignore
         self._load_deploy_btn: UIButton     = None       # type: ignore
         self._start_btn:    UIButton        = None       # type: ignore
@@ -78,7 +80,9 @@ class GameUI:
     _CATEGORIES = [
         ("─── FIXED-WING ───",   ("fighter", "attacker")),
         ("─── ROTARY WING ───",  ("helicopter",)),
+        ("─── LOGISTICS ───",    ("airbase",)),
         ("─── AIR DEFENSE ───",  ("sam",)),
+        ("─── ARTILLERY ───",    ("artillery",)),
         ("─── ARMOR (MBT) ───",  ("tank",)),
         ("─── IFV ───",           ("ifv",)),
         ("─── APC ───",           ("apc",)),
@@ -145,7 +149,7 @@ class GameUI:
             item_list=self._roster_items, manager=self.manager, container=self._panel,
         )
 
-        info_h = panel_h - (_BTN_H + _BTN_PAD) * 7 - _PAD * 3
+        info_h = panel_h - (_BTN_H + _BTN_PAD) * 8 - _PAD * 3
         self._setup_info = UITextBox(
             html_text=(
                 "<b>UNIT DEPLOYMENT</b><br>"
@@ -173,6 +177,7 @@ class GameUI:
         for label, attr in [
             ("Remove Selected",     "_remove_btn"),
             ("Clear All Blue",      "_clear_btn"),
+            ("Auto Deploy Blue",    "_auto_deploy_btn"),
             ("Save Deployment",     "_save_deploy_btn"),
             ("Load Deployment",     "_load_deploy_btn"),
             ("FOG OF WAR: ON",      "_fow_btn"),
@@ -198,10 +203,10 @@ class GameUI:
             manager=self.manager, container=self._panel,
         )
         
-        btn_w_third = (c1 - _BTN_PAD * 2) // 3
-        btn_w_half  = (c1 - _BTN_PAD) // 2
+        # Safely calculate a third width, minus 1 pixel to ensure no GUI edge-clipping issues
+        btn_w_third = int((c1 - _BTN_PAD * 2) / 3) - 1
+        btn_w_half  = int((c1 - _BTN_PAD) / 2)
 
-        # Row 1 & 2: Altitude
         self._climb_5k_btn = UIButton(relative_rect=pygame.Rect(col1_x, row1_y, btn_w_third, _BTN_H), text="▲ +5k ft", tool_tip_text="Climb 5,000 feet", manager=self.manager, container=self._panel)
         self._climb_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row1_y, btn_w_third, _BTN_H), text="▲ +1k ft", tool_tip_text="Climb 1,000 feet", manager=self.manager, container=self._panel)
         self._climb_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row1_y, btn_w_third, _BTN_H), text="▲ +500 ft", tool_tip_text="Climb 500 feet", manager=self.manager, container=self._panel)
@@ -210,12 +215,10 @@ class GameUI:
         self._dive_1k_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row2_y, btn_w_third, _BTN_H), text="▼ -1k ft", tool_tip_text="Dive 1,000 feet", manager=self.manager, container=self._panel)
         self._dive_500_btn = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row2_y, btn_w_third, _BTN_H), text="▼ -500 ft", tool_tip_text="Dive 500 feet", manager=self.manager, container=self._panel)
 
-        # Row 3: Doctrine & EW
         self._auto_engage_btn = UIButton(relative_rect=pygame.Rect(col1_x, row3_y, btn_w_third, _BTN_H), text="AUTO", manager=self.manager, container=self._panel)
         self._roe_btn         = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row3_y, btn_w_third, _BTN_H), text="ROE: TGT", manager=self.manager, container=self._panel)
         self._ecm_btn         = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row3_y, btn_w_third, _BTN_H), text="ECM: PAS", manager=self.manager, container=self._panel)
 
-        # Row 4: Missions
         self._assign_cap_btn = UIButton(relative_rect=pygame.Rect(col1_x, row4_y, btn_w_half, _BTN_H), text="ASSIGN CAP", tool_tip_text="Click map to set CAP center", manager=self.manager, container=self._panel)
         self._clear_msn_btn  = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_half + _BTN_PAD, row4_y, btn_w_half, _BTN_H), text="CLEAR MSN", manager=self.manager, container=self._panel)
         
@@ -225,7 +228,7 @@ class GameUI:
         self._assign_cap_btn.hide()
         self._clear_msn_btn.hide()
 
-        UILabel(relative_rect=pygame.Rect(col2_x, _PAD, c2, 20), text="ARMAMENTS  (click to select)", manager=self.manager, container=self._panel)
+        UILabel(relative_rect=pygame.Rect(col2_x, _PAD, c2, 20), text="ARMAMENTS / HANGAR", manager=self.manager, container=self._panel)
 
         salvo_y = _PAD + 22
         btn_w_salvo = (c2 - _BTN_PAD * 3) // 4
@@ -263,7 +266,7 @@ class GameUI:
             else:
                 btn.set_text(mode)
 
-    def rebuild_weapon_buttons(self, unit: Optional[Unit]) -> None:
+    def rebuild_weapon_buttons(self, unit: Optional[Unit], sim: Optional[SimulationEngine] = None) -> None:
         for btn in self._weap_btns: btn.kill()
         self._weap_btns.clear()
         self._weap_keys.clear()
@@ -275,25 +278,40 @@ class GameUI:
         col2_x   = _PAD + c1 + _PAD
         start_y  = _PAD + 22 + _BTN_H + _BTN_PAD  
 
-        for i, (wkey, qty) in enumerate(unit.loadout.items()):
-            wdef     = self._db.weapons.get(wkey)
-            name     = wdef.display_name if wdef else wkey
-            rng_str  = f" ({wdef.range_km:.0f}km)" if wdef and not wdef.is_gun else ""
-            desc_str = f" - {wdef.description}" if wdef and wdef.description else ""
-            
-            is_sel   = (unit.selected_weapon == wkey)
-            prefix   = "► " if is_sel else "   "
-            label    = f"{prefix}{qty}× {name}{rng_str}{desc_str}"
-            
-            tt_text  = f"<b>{name}</b><br>{wdef.description}<br>Domain: {wdef.domain.upper()}<br>Speed: {wdef.speed_kmh} km/h" if wdef else ""
-            
-            btn = UIButton(relative_rect=pygame.Rect(col2_x, start_y + i * (_WEAP_H + _BTN_PAD), c2, _WEAP_H), 
-                           text=label, 
-                           tool_tip_text=tt_text,
-                           manager=self.manager, 
-                           container=self._panel)
-            self._weap_btns.append(btn)
-            self._weap_keys.append(wkey)
+        btn_idx = 0
+
+        if unit.platform.unit_type == "airbase" and sim is not None:
+            parked = [u for u in sim.units if u.home_uid == unit.uid and u.duty_state != "ACTIVE" and u.alive]
+            for p_unit in parked:
+                state_str = "READY" if p_unit.duty_state == "READY" else f"REARM {int(p_unit.duty_timer)}s"
+                label = f"🚀 {p_unit.callsign} ({state_str})"
+                tt_text = f"<b>{p_unit.platform.display_name}</b><br>Role: {p_unit.platform.unit_type.upper()}<br>Loadout: {p_unit.loadout}"
+                
+                btn = UIButton(relative_rect=pygame.Rect(col2_x, start_y + btn_idx * (_WEAP_H + _BTN_PAD), c2, _WEAP_H), 
+                               text=label, tool_tip_text=tt_text, manager=self.manager, container=self._panel)
+                if p_unit.duty_state != "READY":
+                    btn.disable()
+                self._weap_btns.append(btn)
+                self._weap_keys.append(f"LAUNCH:{p_unit.uid}")
+                btn_idx += 1
+        else:
+            for wkey, qty in unit.loadout.items():
+                wdef     = self._db.weapons.get(wkey)
+                name     = wdef.display_name if wdef else wkey
+                rng_str  = f" ({wdef.range_km:.0f}km)" if wdef and not wdef.is_gun else ""
+                desc_str = f" - {wdef.description}" if wdef and wdef.description else ""
+                
+                is_sel   = (unit.selected_weapon == wkey)
+                prefix   = "► " if is_sel else "   "
+                label    = f"{prefix}{qty}× {name}{rng_str}{desc_str}"
+                
+                tt_text  = f"<b>{name}</b><br>{wdef.description}<br>Domain: {wdef.domain.upper()}<br>Speed: {wdef.speed_kmh} km/h" if wdef else ""
+                
+                btn = UIButton(relative_rect=pygame.Rect(col2_x, start_y + btn_idx * (_WEAP_H + _BTN_PAD), c2, _WEAP_H), 
+                               text=label, tool_tip_text=tt_text, manager=self.manager, container=self._panel)
+                self._weap_btns.append(btn)
+                self._weap_keys.append(wkey)
+                btn_idx += 1
 
     def _parse_qty(self) -> int:
         if self._qty_entry is None: return 1
@@ -315,26 +333,27 @@ class GameUI:
         self.manager.process_events(event)
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if event.ui_element == self._fow_btn: return {"type": "toggle_fow"}
-            if hasattr(self, "_auto_engage_btn") and event.ui_element == self._auto_engage_btn: return {"type": "toggle_auto_engage"}
-            if hasattr(self, "_roe_btn") and event.ui_element == self._roe_btn: return {"type": "toggle_roe"}
-            if hasattr(self, "_ecm_btn") and event.ui_element == self._ecm_btn: return {"type": "toggle_ecm"}
-            if hasattr(self, "_assign_cap_btn") and event.ui_element == self._assign_cap_btn: return {"type": "assign_cap"}
-            if hasattr(self, "_clear_msn_btn") and event.ui_element == self._clear_msn_btn: return {"type": "clear_mission"}
+            if event.ui_element == getattr(self, "_fow_btn", None): return {"type": "toggle_fow"}
+            if event.ui_element == getattr(self, "_auto_engage_btn", None): return {"type": "toggle_auto_engage"}
+            if event.ui_element == getattr(self, "_roe_btn", None): return {"type": "toggle_roe"}
+            if event.ui_element == getattr(self, "_ecm_btn", None): return {"type": "toggle_ecm"}
+            if event.ui_element == getattr(self, "_assign_cap_btn", None): return {"type": "assign_cap"}
+            if event.ui_element == getattr(self, "_clear_msn_btn", None): return {"type": "clear_mission"}
             
             if self._mode == "setup":
+                if event.ui_element == getattr(self, "_auto_deploy_btn", None): return {"type": "auto_deploy_blue"}
                 if event.ui_element == getattr(self, "_save_deploy_btn", None): return {"type": "save_deployment"}
                 if event.ui_element == getattr(self, "_load_deploy_btn", None): return {"type": "load_deployment"}
-                if event.ui_element == self._place_btn:
+                if event.ui_element == getattr(self, "_place_btn", None):
                     sel = (self._roster_list.get_single_selection() if self._roster_list else None)
                     if sel and sel in self._roster_items:
                         key = self._roster_keys[self._roster_items.index(sel)]
                         if key.startswith(self._DIVIDER_PREFIX): return {"type": "place_unit_no_selection"}
                         return {"type": "place_unit", "platform_key": key, "quantity": self._parse_qty()}
                     return {"type": "place_unit_no_selection"}
-                if event.ui_element == self._remove_btn: return {"type": "remove_selected"}
-                if event.ui_element == self._clear_btn: return {"type": "clear_blue"}
-                if event.ui_element == self._start_btn: return {"type": "start_sim"}
+                if event.ui_element == getattr(self, "_remove_btn", None): return {"type": "remove_selected"}
+                if event.ui_element == getattr(self, "_clear_btn", None): return {"type": "clear_blue"}
+                if event.ui_element == getattr(self, "_start_btn", None): return {"type": "start_sim"}
 
             if self._mode == "combat":
                 if hasattr(self, "_climb_5k_btn"):
@@ -355,7 +374,12 @@ class GameUI:
                     if event.ui_element == btn: return {"type": "speed_change", "speed_idx": i}
                 
                 for i, btn in enumerate(self._weap_btns):
-                    if event.ui_element == btn: return {"type": "weapon_select", "weapon_key": self._weap_keys[i]}
+                    if event.ui_element == btn:
+                        key = self._weap_keys[i]
+                        if key.startswith("LAUNCH:"):
+                            return {"type": "launch_parked", "uid": key.split(":")[1]}
+                        else:
+                            return {"type": "weapon_select", "weapon_key": key}
         return {}
 
     def update(self, time_delta: float, sim: Optional[SimulationEngine], selected: Optional[Unit], placing_type: Optional[str] = None, placing_remaining: int = 0, show_all_enemies: bool = False, blue_contacts: dict | None = None) -> None:
@@ -374,9 +398,14 @@ class GameUI:
                             key = self._roster_keys[self._roster_items.index(s)]
                             p   = self._db.platforms.get(key)
                             if p:
-                                type_labels = {"fighter":"Fighter","attacker":"Attack","helicopter":"Helicopter","tank":"MBT","ifv":"IFV","apc":"APC","recon":"Recon","tank_destroyer":"Tank Destroyer","sam":"Air Defense"}
+                                type_labels = {
+                                    "fighter":"Fighter", "attacker":"Attack", "helicopter":"Helicopter",
+                                    "tank":"MBT", "ifv":"IFV", "apc":"APC", "recon":"Recon",
+                                    "tank_destroyer":"Tank Destroyer", "sam":"Air Defense",
+                                    "airbase":"Logistics Node", "artillery":"Artillery"
+                                }
                                 tl = type_labels.get(p.unit_type, p.unit_type.upper())
-                                spd_lbl = "km/h" if p.unit_type not in ("tank","ifv","apc","recon","tank_destroyer","sam") else "km/h (road)"
+                                spd_lbl = "km/h" if p.unit_type not in ("tank","ifv","apc","recon","tank_destroyer","sam","airbase","artillery") else "km/h (road)"
                                 sel_str = f"<b>Selected:</b> {p.display_name}<br><b>Type:</b> {tl}  ×{p.fleet_count} in service<br>Spd {p.speed_kmh} {spd_lbl}  Detect {p.radar_range_km} km<br>ECM {int(p.ecm_rating*100)}%<br><br>"
                     self._setup_info.set_text(f"<b>DEPLOYMENT PHASE</b><br>Blue units placed: <b>{placed}</b><br><br>{sel_str}Select type → Place on Map<br>Right-click unit to remove")
         else:  
@@ -409,13 +438,36 @@ class GameUI:
                         self._auto_engage_btn.hide()
                         self._roe_btn.hide()
                         
-                has_ecm = selected.side == "Blue" and p.ecm_rating > 0
+                # Safely check if the unit has ECM > 0 to render the dynamic ECM button
+                has_ecm = selected.side == "Blue" and getattr(p, 'ecm_rating', 0.0) > 0.0
                 if getattr(self, "_ecm_btn", None):
                     if has_ecm:
                         self._ecm_btn.show()
                         self._ecm_btn.set_text(f"ECM: {'ACTV' if selected.is_jamming else 'PASS'}")
                     else:
                         self._ecm_btn.hide()
+                        
+                if selected.platform.unit_type == "airbase":
+                    parked = [u for u in sim.units if u.home_uid == selected.uid and u.duty_state != "ACTIVE" and u.alive]
+                    parked_count = len(parked)
+                    if parked_count != getattr(self, "_last_parked_count", -1):
+                        self.rebuild_weapon_buttons(selected, sim)
+                        self._last_parked_count = parked_count
+                    
+                    for i, key in enumerate(self._weap_keys):
+                        if key.startswith("LAUNCH:"):
+                            p_uid = key.split(":")[1]
+                            p_unit = sim.get_unit_by_uid(p_uid)
+                            if p_unit:
+                                btn = self._weap_btns[i]
+                                if p_unit.duty_state == "READY":
+                                    btn.set_text(f"🚀 {p_unit.callsign} (READY)")
+                                    btn.enable()
+                                else:
+                                    btn.set_text(f"⏳ {p_unit.callsign} (REARM {int(p_unit.duty_timer)}s)")
+                                    btn.disable()
+                else:
+                    self._last_parked_count = -1
 
                 alt_display = f"{int(selected.altitude_ft):,} ft"
                 if int(selected.target_altitude_ft) != int(selected.altitude_ft):
@@ -426,6 +478,16 @@ class GameUI:
                 
                 hp_pct = int(selected.hp * 100)
                 hp_col = "#FF4444" if hp_pct <= 25 else "#FFAA00" if hp_pct <= 50 else "#FFFF00" if hp_pct <= 75 else "#44FF44"
+
+                if p.unit_type in ("fighter", "attacker", "helicopter"):
+                    if selected.duty_state == "REARMING":
+                        state_str = f"<b>Status:</b> <font color='#FFAA00'>REARMING ({int(selected.duty_timer)}s)</font>"
+                    elif selected.duty_state == "READY":
+                        state_str = f"<b>Status:</b> <font color='#44FF44'>READY (Landed)</font>"
+                    else:
+                        state_str = f"<b>Spd:</b> {p.speed_kmh:,} km/h  <b>Alt:</b> {alt_display}"
+                else:
+                    state_str = f"<b>Spd:</b> {p.speed_kmh:,} km/h  <b>Alt:</b> {alt_display}"
 
                 contacts = blue_contacts or {}
                 contact = contacts.get(selected.uid) if selected.side == "Red" else None
@@ -439,10 +501,11 @@ class GameUI:
                         self._nav_box.set_text(f"<b>CONTACT</b>  <font color='{cls_col}'>{cls}</font><br><b>Pos:</b> {contact.lat:.3f}°N  {contact.lon:.3f}°E<br><b>Type:</b> {contact.unit_type or 'unknown'}<br><b>Alt:</b> {int(contact.altitude_ft):,} ft<br><b>Side:</b> unknown")
                     else:  
                         msn_str = f"<b>Mission:</b> {selected.mission.mission_type}" if selected.mission else "<b>Mission:</b> NONE"
-                        self._nav_box.set_text(f"<b>CONTACT — {selected.callsign}</b>  <font color='{cls_col}'>{cls}</font><br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font> {msn_str}<br><b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Alt:</b> {alt_display}  <b>Spd:</b> {p.speed_kmh:,} km/h<br><b>RCS:</b> {p.rcs_m2} m²  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})")
+                        self._nav_box.set_text(f"<b>CONTACT — {selected.callsign}</b>  <font color='{cls_col}'>{cls}</font><br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font> {msn_str}<br><b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br>{state_str}<br><b>RCS:</b> {p.rcs_m2} m²  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})")
                 elif selected.side == "Blue":
                     msn_str = f"<b>Mission:</b> {selected.mission.mission_type} ({selected.mission.name})" if selected.mission else "<b>Mission:</b> NONE"
-                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  <b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)<br>{msn_str}<br><b>Spd:</b> {p.speed_kmh:,} km/h  <b>Alt:</b> {alt_display}<br><b>Radar:</b> {p.radar_range_km} km  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})<br><b>Chaff/Flare:</b> {selected.chaff} / {selected.flare}<br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
+                    fuel_str = f"<b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)" if p.unit_type not in ("airbase", "artillery", "sam", "tank", "ifv", "apc", "recon", "tank_destroyer") else ""
+                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  {fuel_str}<br>{msn_str}<br>{state_str}<br><b>Radar:</b> {p.radar_range_km} km  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})<br><b>Chaff/Flare:</b> {selected.chaff} / {selected.flare}<br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
                 else:
                     self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Red]<br><b>Type:</b> {p.display_name}<br><b>Not currently tracked</b>")
             else:
@@ -458,6 +521,7 @@ class GameUI:
                 if getattr(self, "_ecm_btn", None): self._ecm_btn.hide()
                 if getattr(self, "_assign_cap_btn", None): self._assign_cap_btn.hide()
                 if getattr(self, "_clear_msn_btn", None): self._clear_msn_btn.hide()
+                self._last_parked_count = -1
                 
                 t  = SimulationEngine._fmt_time(sim.game_time)
                 cx = "PAUSED" if sim.paused else f"{sim.time_compression}×"
@@ -468,7 +532,7 @@ class GameUI:
                 recent = list(reversed(list(sim.event_log)[-6:]))
                 self._log_box.set_text("<br>".join(f'<font color="#90D090">› {e}</font>' for e in recent))
 
-        if self._fow_btn: self._fow_btn.set_text(f"FOG OF WAR: {'OFF' if show_all_enemies else 'ON'}")
+        if getattr(self, "_fow_btn", None): self._fow_btn.set_text(f"FOG OF WAR: {'OFF' if show_all_enemies else 'ON'}")
 
         self.manager.update(time_delta)
 
