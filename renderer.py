@@ -21,7 +21,6 @@ from map_tiles import get_tile
 from scenario import Missile, Unit
 from sensor import Contact
 
-
 class Renderer:
     def __init__(self, surface: pygame.Surface):
         self.surface     = surface
@@ -41,7 +40,9 @@ class Renderer:
                    placing_type: str | None = None,
                    placing_remaining: int = 0,
                    mouse_pos: tuple[int, int] | None = None,
-                   show_all_enemies: bool = False) -> None:
+                   show_all_enemies: bool = False,
+                   show_air_labels: bool = True,
+                   show_ground_labels: bool = True) -> None:
         contacts = blue_contacts or {}
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
@@ -50,10 +51,9 @@ class Renderer:
         self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         
         self._draw_missiles(cam_px, cam_py, zoom, missiles, win_w, map_h)
-        self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h,
-                         contacts, show_all_enemies)
-        self._draw_contacts(cam_px, cam_py, zoom, contacts, units,
-                            win_w, map_h, show_all_enemies)
+        self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h, contacts, show_all_enemies, show_air_labels, show_ground_labels)
+        self._draw_contacts(cam_px, cam_py, zoom, contacts, units, win_w, map_h, show_all_enemies, show_air_labels, show_ground_labels)
+        
         if placing_type and mouse_pos and mouse_pos[1] < map_h:
             self._draw_placement_cursor(mouse_pos, placing_type, placing_remaining)
 
@@ -79,13 +79,8 @@ class Renderer:
     def _draw_radar_rings(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
             if not unit.alive or unit.duty_state != "ACTIVE": continue
-            
-            if unit.side == "Red" and not show_all_enemies: 
-                continue         
-            
-            # Hide the ring if the radar is toggled off
-            if not getattr(unit, 'radar_active', True):
-                continue
+            if unit.side == "Red" and not show_all_enemies: continue         
+            if not getattr(unit, 'radar_active', True): continue
                 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             
@@ -104,9 +99,7 @@ class Renderer:
     def _draw_routes(self, cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies: bool) -> None:
         for unit in units:
             if not unit.alive or not unit.waypoints or unit.duty_state != "ACTIVE": continue
-            
-            if unit.side == "Red" and not show_all_enemies:
-                continue
+            if unit.side == "Red" and not show_all_enemies: continue
                 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             points = [(sx, sy)]
@@ -134,13 +127,12 @@ class Renderer:
             pygame.draw.circle(self.surface, color, (int(mx), int(my)), 3)
 
     def _draw_units(self, cam_px, cam_py, zoom, units, win_w, map_h,
-                   contacts: dict, show_all_enemies: bool) -> None:
+                   contacts: dict, show_all_enemies: bool, show_air_labels: bool, show_ground_labels: bool) -> None:
         for unit in units:
             if not unit.alive or unit.duty_state != "ACTIVE": continue
             if unit.side == "Red" and not show_all_enemies: continue
 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
-
             if not (-80 < sx < win_w + 80 and -80 < sy < map_h + 80): continue
 
             base_color = (BLUE_UNIT_COLOR if unit.side == "Blue" else RED_UNIT_COLOR)
@@ -149,13 +141,13 @@ class Renderer:
 
             if unit.selected: pygame.draw.circle(self.surface, SELECTED_COLOR, (int(sx), int(sy)), 18, 2)
 
+            utype = unit.platform.unit_type
             surf = self._get_unit_surface(unit)
             if surf:
                 rotated = pygame.transform.rotate(surf, -unit.heading)
                 rect    = rotated.get_rect(center=(int(sx), int(sy)))
                 self.surface.blit(rotated, rect.topleft)
             else:
-                utype = unit.platform.unit_type
                 if utype == "tank": self._draw_tank_symbol(sx, sy, unit.heading, color)
                 elif utype == "ifv": self._draw_ifv_symbol(sx, sy, color)
                 elif utype == "apc": self._draw_apc_symbol(sx, sy, color)
@@ -166,12 +158,17 @@ class Renderer:
                 elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
                 else: self._draw_jet_polygon(sx, sy, unit.heading, color)
 
-            det_tag = " ◆" if unit.is_detected and unit.side == "Blue" else ""
-            label   = self._font_sm.render(f"{unit.callsign}{det_tag}", True, (0, 0, 0))
-            self.surface.blit(label, (int(sx) + 13, int(sy) - 10))
-            
-            type_label = self._font_sm.render(unit.platform.display_name, True, (0, 0, 0))
-            self.surface.blit(type_label, (int(sx) + 13, int(sy) + 2))
+            # Filter Labels by Category Selection
+            is_air = utype in ("fighter", "attacker", "helicopter", "awacs")
+            show_label = (is_air and show_air_labels) or (not is_air and show_ground_labels)
+
+            if show_label:
+                det_tag = " ◆" if unit.is_detected and unit.side == "Blue" else ""
+                label   = self._font_sm.render(f"{unit.callsign}{det_tag}", True, (0, 0, 0))
+                self.surface.blit(label, (int(sx) + 13, int(sy) - 10))
+                
+                type_label = self._font_sm.render(unit.platform.display_name, True, (0, 0, 0))
+                self.surface.blit(type_label, (int(sx) + 13, int(sy) + 2))
 
     def _get_unit_surface(self, unit: Unit) -> Optional[pygame.Surface]:
         path = unit.image_path
@@ -251,7 +248,7 @@ class Renderer:
     def _draw_contacts(self, cam_px, cam_py, zoom,
                        contacts: dict, units: list,
                        win_w: int, map_h: int,
-                       show_all_enemies: bool) -> None:
+                       show_all_enemies: bool, show_air_labels: bool, show_ground_labels: bool) -> None:
         if show_all_enemies: return
 
         uid_to_unit = {u.uid: u for u in units if u.side == "Red"}
@@ -261,29 +258,35 @@ class Renderer:
             if not (-80 < sx < win_w + 80 and -80 < sy < map_h + 80): continue
 
             cls = contact.classification
+            utype = contact.unit_type or "unknown"
+            
+            # Treat unknown as a ground contact for label hiding purposes
+            is_air = utype in ("fighter", "attacker", "helicopter", "awacs")
+            show_label = (is_air and show_air_labels) or (not is_air and show_ground_labels)
 
             if cls == "FAINT":
                 pygame.draw.circle(self.surface, CONTACT_FAINT_COLOR, (int(sx), int(sy)), 5, 1)
-                lbl = self._font_sm.render("?", True, CONTACT_FAINT_COLOR)
-                self.surface.blit(lbl, (int(sx) + 7, int(sy) - 6))
+                if show_label:
+                    lbl = self._font_sm.render("?", True, CONTACT_FAINT_COLOR)
+                    self.surface.blit(lbl, (int(sx) + 7, int(sy) - 6))
 
             elif cls == "PROBABLE":
                 color = CONTACT_PROBABLE_COLOR
-                utype = contact.unit_type or "unknown"
-                if utype in ("fighter", "attacker", "helicopter", "awacs"):
+                if is_air:
                     pts = [(sx, sy - 9), (sx + 8, sy + 5), (sx - 8, sy + 5)]
                     pygame.draw.polygon(self.surface, color, pts, 2)
                 else:
                     pts = [(sx, sy - 9), (sx + 9, sy), (sx, sy + 9), (sx - 9, sy)]
                     pygame.draw.polygon(self.surface, color, pts, 2)
-                lbl = self._font_sm.render(f"? {utype}", True, color)
-                self.surface.blit(lbl, (int(sx) + 12, int(sy) - 6))
+                    
+                if show_label:
+                    lbl = self._font_sm.render(f"? {utype}", True, color)
+                    self.surface.blit(lbl, (int(sx) + 12, int(sy) - 6))
 
             else:  
                 unit = uid_to_unit.get(uid)
                 if unit is None: continue  
                 color = CONTACT_CONFIRM_COLOR
-                utype = unit.platform.unit_type
 
                 if unit.flash_frames > 0: color = (255, 255, 255)
 
@@ -303,10 +306,11 @@ class Renderer:
                     elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
                     else: self._draw_jet_polygon(sx, sy, unit.heading, color)
 
-                callsign_lbl = self._font_sm.render(unit.callsign, True, (0, 0, 0))
-                type_lbl = self._font_sm.render(unit.platform.display_name, True, (0, 0, 0))
-                self.surface.blit(callsign_lbl, (int(sx) + 13, int(sy) - 10))
-                self.surface.blit(type_lbl,     (int(sx) + 13, int(sy) + 2))
+                if show_label:
+                    callsign_lbl = self._font_sm.render(unit.callsign, True, (0, 0, 0))
+                    type_lbl = self._font_sm.render(unit.platform.display_name, True, (0, 0, 0))
+                    self.surface.blit(callsign_lbl, (int(sx) + 13, int(sy) - 10))
+                    self.surface.blit(type_lbl,     (int(sx) + 13, int(sy) + 2))
 
     def _draw_placement_cursor(self, mouse_pos: tuple[int, int],
                                 placing_type: str,

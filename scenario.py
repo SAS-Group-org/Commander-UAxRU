@@ -12,6 +12,7 @@ import pygame
 
 from constants import MIN_PK, MAX_PK, MISSILE_TRAIL_LEN, CHAFF_PK_PENALTY, FLARE_PK_PENALTY, BURNTHROUGH_RANGE_KM
 from geo import haversine, bearing, slant_range_km
+from sensor import Contact
 
 @dataclass(frozen=True)
 class WeaponDef:
@@ -29,6 +30,7 @@ class WeaponDef:
     reload_time_s: float  
     eccm:         float
     inevadable:   bool = False
+    flight_profile: str = "direct" 
 
 @dataclass(frozen=True)
 class PlatformDef:
@@ -45,6 +47,8 @@ class PlatformDef:
     radar_range_km:    float
     radar_type:        str
     radar_modes:       tuple[str, ...]
+    esm_range_km:      float            
+    ir_range_km:       float            
     default_loadout:   dict[str, int]
     available_weapons: tuple[str, ...]
     fleet_count:       int              
@@ -64,26 +68,35 @@ class Mission:
     rtb_fuel_pct: float
 
 class Missile:
-    def __init__(self, lat: float, lon: float, alt_ft: float,
-                 target: "Unit", side: str,
-                 weapon_def: WeaponDef):
-        self.lat        = lat
-        self.lon        = lon
-        self.altitude_ft = alt_ft
+    def __init__(self, shooter: "Unit", target: "Unit", weapon_def: WeaponDef):
+        self.shooter    = shooter
+        self.lat        = shooter.lat
+        self.lon        = shooter.lon
+        self.altitude_ft = shooter.altitude_ft
         self.target     = target
-        self.side       = side
+        self.side       = shooter.side
         self.wdef       = weapon_def
         self.active     = True
         self.status     = "IN_FLIGHT"
-        self.launch_dist = slant_range_km(lat, lon, alt_ft, target.lat, target.lon, target.altitude_ft)
+        self.launch_dist = slant_range_km(self.lat, self.lon, self.altitude_ft, target.lat, target.lon, target.altitude_ft)
         self.trail: deque[tuple[float, float]] = deque(maxlen=MISSILE_TRAIL_LEN)
         self.eff_speed_kmh = weapon_def.speed_kmh if weapon_def.speed_kmh > 0 else 5000.0
+        
+        self.is_ballistic = (self.wdef.flight_profile == "ballistic")
+        self.impact_lat = target.lat
+        self.impact_lon = target.lon
+        self.impact_alt_ft = target.altitude_ft
 
     def update(self, sim_delta: float) -> None:
         if not self.active: return
         
-        # If target is destroyed by another missile, mark as LOST, not MISSED.
-        if not self.target.alive:
+        if self.wdef.seeker == "SARH":
+            if not self.shooter.alive or not getattr(self.shooter, 'radar_active', True):
+                self.active = False
+                self.status = "LOST"
+                return
+
+        if not self.target.alive and not self.is_ballistic:
             self.active = False
             self.status = "LOST"
             return
@@ -91,84 +104,90 @@ class Missile:
         self.trail.append((self.lat, self.lon))
         speed_kms   = self.eff_speed_kmh / 3600.0
         move_dist   = speed_kms * sim_delta
-        dist        = slant_range_km(self.lat, self.lon, self.altitude_ft, self.target.lat, self.target.lon, self.target.altitude_ft)
+        
+        t_lat = self.impact_lat if self.is_ballistic else self.target.lat
+        t_lon = self.impact_lon if self.is_ballistic else self.target.lon
+        t_alt = self.impact_alt_ft if self.is_ballistic else self.target.altitude_ft
+        
+        dist = slant_range_km(self.lat, self.lon, self.altitude_ft, t_lat, t_lon, t_alt)
+
+        fraction_travelled = 1.0 - max(0.0, min(1.0, dist / max(1.0, self.launch_dist)))
+        
+        if self.wdef.flight_profile == "lofted":
+            if fraction_travelled < 0.5:
+                self.altitude_ft = self.shooter.altitude_ft + (60000 - self.shooter.altitude_ft) * (fraction_travelled * 2)
+            else:
+                self.altitude_ft = 60000 - (60000 - t_alt) * ((fraction_travelled - 0.5) * 2)
+        elif self.wdef.flight_profile == "sea_skimming":
+            if fraction_travelled > 0.05: self.altitude_ft = max(30.0, t_alt)
+        elif self.wdef.flight_profile == "terrain_following":
+            if fraction_travelled > 0.10: self.altitude_ft = max(200.0, t_alt)
+        elif self.is_ballistic:
+            peak_alt = self.launch_dist * 1000.0
+            self.altitude_ft = math.sin(fraction_travelled * math.pi) * peak_alt + t_alt
 
         if dist <= move_dist:
-            # Scale penalty by the weapon's maximum range.
-            range_fraction = self.launch_dist / max(1.0, self.wdef.range_km)
-            dist_penalty = range_fraction * 0.15
-            
-            pk = self.wdef.base_pk - dist_penalty 
-
-            # ARM seeker logic: heavy penalty if target turned off its radar
-            if self.wdef.seeker == "ARM":
-                if not getattr(self.target, 'radar_active', True):
-                    pk -= 0.60 
-
-            # ECM penalty for radar-guided missiles (only if outside burn-through range)
-            if self.target.is_jamming and self.target.platform.ecm_rating > 0:
-                if self.launch_dist > BURNTHROUGH_RANGE_KM:
-                    if self.wdef.seeker in ("ARH", "SARH"):
-                        ecm_effect = max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
-                        pk -= ecm_effect
-
-            if self.wdef.seeker in ("ARH", "SARH") and self.target.chaff > 0:
-                self.target.chaff -= 1
-                pk -= CHAFF_PK_PENALTY
-            elif self.wdef.seeker == "IR" and self.target.flare > 0:
-                self.target.flare -= 1
-                pk -= FLARE_PK_PENALTY
-
-            if self.wdef.inevadable:
-                pk = 1.0  
-            else:
-                pk = max(MIN_PK, min(MAX_PK, pk))
-                
+            pk = self._calculate_terminal_pk()
             if random.random() <= pk:
-                self.target.take_damage(self.wdef.damage)
+                if self.target.alive: self.target.take_damage(self.wdef.damage)
                 self.status = "HIT"
             else:
                 self.status = "MISSED"
-
             self.active = False
-            self.lat, self.lon, self.altitude_ft = self.target.lat, self.target.lon, self.target.altitude_ft
+            self.lat, self.lon, self.altitude_ft = t_lat, t_lon, t_alt
         else:
             ratio    = move_dist / dist
-            dlat     = self.target.lat - self.lat
-            dlon     = self.target.lon - self.lon
-            dalt     = self.target.altitude_ft - self.altitude_ft
+            dlat     = t_lat - self.lat
+            dlon     = t_lon - self.lon
+            dalt     = t_alt - self.altitude_ft
             self.lat += dlat * ratio
             self.lon += dlon * ratio
             self.altitude_ft += dalt * ratio
 
+    def _calculate_terminal_pk(self) -> float:
+        if self.is_ballistic:
+            actual_dist_to_target = haversine(self.impact_lat, self.impact_lon, self.target.lat, self.target.lon)
+            if actual_dist_to_target > 0.15: return 0.0
+        
+        range_fraction = self.launch_dist / max(1.0, self.wdef.range_km)
+        pk = self.wdef.base_pk - (range_fraction * 0.15)
+        
+        if self.wdef.seeker == "ARM" and not getattr(self.target, 'radar_active', True): pk -= 0.60 
+
+        if self.target.is_jamming and self.target.platform.ecm_rating > 0 and self.launch_dist > BURNTHROUGH_RANGE_KM:
+            if self.wdef.seeker in ("ARH", "SARH"): pk -= max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
+
+        if self.wdef.seeker in ("ARH", "SARH") and self.target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+            brg_to_msl = bearing(self.target.lat, self.target.lon, self.lat, self.lon)
+            aspect = abs(self.target.heading - brg_to_msl) % 360
+            if (75 < aspect < 105) or (255 < aspect < 285):
+                notch_penalty = 0.25
+                if self.target.altitude_ft < 5000: notch_penalty += 0.35 
+                pk -= notch_penalty
+
+        if self.wdef.seeker in ("ARH", "SARH") and self.target.chaff > 0:
+            self.target.chaff -= 1; pk -= CHAFF_PK_PENALTY
+        elif self.wdef.seeker == "IR" and self.target.flare > 0:
+            self.target.flare -= 1; pk -= FLARE_PK_PENALTY
+
+        return 1.0 if self.wdef.inevadable else max(MIN_PK, min(MAX_PK, pk))
+
     def estimated_pk(self) -> float:
         dist = slant_range_km(self.lat, self.lon, self.altitude_ft, self.target.lat, self.target.lon, self.target.altitude_ft)
-        
-        # Ensure estimated_pk mirrors the exact same scaled logic
         range_fraction = dist / max(1.0, self.wdef.range_km)
-        dist_penalty = range_fraction * 0.15
-        
-        pk = self.wdef.base_pk - dist_penalty
-        
-        # Mirror the ARM seeker penalty so the UI accurately reflects radar shutdowns
-        if self.wdef.seeker == "ARM":
-            if not getattr(self.target, 'radar_active', True):
-                pk -= 0.60
-                
-        # ECM penalty for radar-guided missiles (only if outside burn-through range)
-        if self.target.is_jamming and self.target.platform.ecm_rating > 0:
-            if self.launch_dist > BURNTHROUGH_RANGE_KM:
-                if self.wdef.seeker in ("ARH", "SARH"):
-                    ecm_effect = max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
-                    pk -= ecm_effect
-                    
+        pk = self.wdef.base_pk - (range_fraction * 0.15)
+        if self.wdef.seeker == "ARM" and not getattr(self.target, 'radar_active', True): pk -= 0.60
+        if self.target.is_jamming and self.target.platform.ecm_rating > 0 and self.launch_dist > BURNTHROUGH_RANGE_KM:
+            if self.wdef.seeker in ("ARH", "SARH"): pk -= max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
+        if self.wdef.seeker in ("ARH", "SARH") and self.target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+            brg_to_msl = bearing(self.target.lat, self.target.lon, self.shooter.lat, self.shooter.lon)
+            aspect = abs(self.target.heading - brg_to_msl) % 360
+            if (75 < aspect < 105) or (255 < aspect < 285):
+                pk -= 0.25 + (0.35 if self.target.altitude_ft < 5000 else 0.0)
         return max(MIN_PK, min(MAX_PK, pk))
 
 class Unit:
-    def __init__(self, uid: str, callsign: str, lat: float, lon: float,
-                 side: str, platform: PlatformDef,
-                 loadout: dict[str, int],
-                 image_path: Optional[str] = None):
+    def __init__(self, uid: str, callsign: str, lat: float, lon: float, side: str, platform: PlatformDef, loadout: dict[str, int], image_path: Optional[str] = None):
         self.uid        = uid
         self.callsign   = callsign
         self.lat        = lat
@@ -203,7 +222,6 @@ class Unit:
         self.chaff: int = platform.chaff_capacity
         self.flare: int = platform.flare_capacity
 
-        # Evasion State
         self.is_evading: bool = False
         self.last_evasion_time: float = 0.0
 
@@ -213,12 +231,14 @@ class Unit:
 
         self.home_lat: float = lat
         self.home_lon: float = lon
-        self.ai_fire_cooldown: float = 0.0
-        self.ai_gun_cooldown:  float = 0.0
+        
+        # DATALINK CAPABILITIES
+        self.datalink_active: bool = True
+        self.local_contacts: dict[str, Contact] = {}
+        self.merged_contacts: dict[str, Contact] = {}
 
     @property
-    def alive(self) -> bool:
-        return self.hp > 0.0
+    def alive(self) -> bool: return self.hp > 0.0
 
     @property
     def performance_mult(self) -> float:
@@ -235,14 +255,10 @@ class Unit:
             self.damage_state = "KILLED"
             self.is_jamming = False 
             self.radar_active = False
-        elif self.hp <= 0.25:
-            self.damage_state = "HEAVY"
-        elif self.hp <= 0.50:
-            self.damage_state = "MODERATE"
-        elif self.hp <= 0.75:
-            self.damage_state = "LIGHT"
-        else:
-            self.damage_state = "OK"
+        elif self.hp <= 0.25: self.damage_state = "HEAVY"
+        elif self.hp <= 0.50: self.damage_state = "MODERATE"
+        elif self.hp <= 0.75: self.damage_state = "LIGHT"
+        else: self.damage_state = "OK"
 
     def add_waypoint(self, lat: float, lon: float) -> None:
         self.waypoints.append((lat, lon))
@@ -252,8 +268,7 @@ class Unit:
         self.waypoints.clear()
 
     def _recalc_heading(self) -> None:
-        if self.waypoints:
-            self.heading = bearing(self.lat, self.lon, *self.waypoints[0])
+        if self.waypoints: self.heading = bearing(self.lat, self.lon, *self.waypoints[0])
 
     def update(self, sim_delta: float) -> None:
         if not self.alive: return
@@ -264,21 +279,17 @@ class Unit:
                 self.duty_state = "READY"
                 self.duty_timer = 0.0
                 
-        if self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs") and self.duty_state != "ACTIVE":
-            return
+        if self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs") and self.duty_state != "ACTIVE": return
         
         for k in self.weapon_cooldowns:
-            if self.weapon_cooldowns[k] > 0:
-                self.weapon_cooldowns[k] = max(0.0, self.weapon_cooldowns[k] - sim_delta)
+            if self.weapon_cooldowns[k] > 0: self.weapon_cooldowns[k] = max(0.0, self.weapon_cooldowns[k] - sim_delta)
         
         if self.altitude_ft != self.target_altitude_ft:
             climb_rate_fps = 166.67 * self.performance_mult
             alt_diff = self.target_altitude_ft - self.altitude_ft
             step = climb_rate_fps * sim_delta
-            if abs(alt_diff) <= step:
-                self.altitude_ft = self.target_altitude_ft
-            else:
-                self.altitude_ft += math.copysign(step, alt_diff)
+            if abs(alt_diff) <= step: self.altitude_ft = self.target_altitude_ft
+            else: self.altitude_ft += math.copysign(step, alt_diff)
 
         if self.waypoints:
             speed_kms    = (self.platform.speed_kmh * self.performance_mult) / 3600.0
@@ -309,9 +320,7 @@ class Unit:
                 self.fuel_kg = 0
                 self.take_damage(999.0) 
 
-    def has_ammo(self, weapon_key: str) -> bool:
-        return self.loadout.get(weapon_key, 0) > 0
-
+    def has_ammo(self, weapon_key: str) -> bool: return self.loadout.get(weapon_key, 0) > 0
     def expend_round(self, weapon_key: str) -> bool:
         if self.has_ammo(weapon_key):
             self.loadout[weapon_key] -= 1
@@ -323,15 +332,10 @@ class Unit:
         idx = (roles.index(self.current_loadout_role) + 1) % len(roles)
         new_role = roles[idx]
         self.current_loadout_role = new_role
-        
-        if new_role == "DEFAULT":
-            self.loadout = dict(self.platform.default_loadout)
-            return new_role
-            
+        if new_role == "DEFAULT": self.loadout = dict(self.platform.default_loadout); return new_role
         new_loadout = {}
         guns = {w: 1 for w in self.platform.available_weapons if db.weapons.get(w) and db.weapons[w].is_gun}
         new_loadout.update(guns)
-        
         aw = [w for w in self.platform.available_weapons if db.weapons.get(w) and not db.weapons[w].is_gun]
         
         if new_role == "A2A":
@@ -358,8 +362,7 @@ class Unit:
 
     def best_weapon_for(self, db: "Database", target: "Unit") -> Optional[str]:
         target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
-        best_key   = None
-        best_score = -1.0
+        best_key, best_score = None, -1.0
         is_sead = self.mission and self.mission.mission_type == "SEAD"
         
         for wkey, qty in self.loadout.items():
@@ -368,98 +371,71 @@ class Unit:
             if not wdef: continue
             if wdef.domain == "air" and not target_is_air: continue
             if wdef.domain == "ground" and target_is_air: continue
-            
-            # ARM Targeting Constraints
-            if wdef.seeker == "ARM":
-                if not getattr(target, 'radar_active', True):
-                    continue 
+            if wdef.seeker == "ARM" and not getattr(target, 'radar_active', True): continue 
             
             score = wdef.range_km
-            if is_sead and wdef.seeker == "ARM":
-                score += 1000 
-            elif not target_is_air and target.platform.unit_type in ("sam", "airbase") and wdef.seeker == "ARM":
-                score += 500
+            if is_sead and wdef.seeker == "ARM": score += 1000 
+            elif not target_is_air and target.platform.unit_type in ("sam", "airbase") and wdef.seeker == "ARM": score += 500
                 
             if score > best_score:
-                best_key   = wkey
-                best_score = score
+                best_key, best_score = wkey, score
         return best_key
 
-    def trigger_flash(self, frames: int = 12) -> None:
-        self.flash_frames = frames
-
+    def trigger_flash(self, frames: int = 12) -> None: self.flash_frames = frames
     def tick_flash(self) -> None:
         if self.flash_frames > 0: self.flash_frames -= 1
-
-    def is_clicked(self, screen_pos: tuple[int, int],
-                   sx: float, sy: float, radius: int = 16) -> bool:
+    def is_clicked(self, screen_pos: tuple[int, int], sx: float, sy: float, radius: int = 16) -> bool:
         return math.hypot(sx - screen_pos[0], sy - screen_pos[1]) <= radius
 
 
-# ── Database ─────────────────────────────────────────────────────────────────
-
 class Database:
-    def __init__(self,
-                 weapons_path:  str = None,
-                 units_path:    str = None):
+    def __init__(self, weapons_path: str = None, units_path: str = None):
         self.weapons:   dict[str, WeaponDef]   = {}
         self.platforms: dict[str, PlatformDef] = {}
 
         raw_weapons = {}
         if weapons_path and os.path.exists(weapons_path):
-            with open(weapons_path, encoding="utf-8") as fh:
-                raw_weapons = json.load(fh)
+            with open(weapons_path, encoding="utf-8") as fh: raw_weapons = json.load(fh)
 
         for key, d in raw_weapons.items():
+            profile = d.get("flight_profile")
+            if not profile:
+                if d.get("seeker") == "SARH" or (d.get("range_km", 0) > 40 and d.get("domain") == "air"): profile = "lofted"
+                elif "AShM" in d.get("description", "") or "Sea" in d.get("display_name", ""): profile = "sea_skimming"
+                elif d.get("range_km", 0) > 100 and d.get("domain") == "ground": profile = "terrain_following"
+                elif "ARTY" in key or "GMLRS" in key or "ROCKET" in key: profile = "ballistic"
+                else: profile = "direct"
+
             self.weapons[key] = WeaponDef(
-                key          = key,
-                display_name = d["display_name"],
-                seeker       = d["seeker"],
-                range_km     = d["range_km"],
-                min_range_km = d["min_range_km"],
-                speed_kmh    = d["speed_kmh"],
-                base_pk      = d["base_pk"],
-                is_gun       = d["is_gun"],
-                description  = d["description"],
-                domain       = d.get("domain", "both"),
-                damage       = float(d.get("damage", 0.6)),
-                reload_time_s = float(d.get("reload_time_s", 0.5 if d.get("is_gun") else 3.0)),
-                eccm         = float(d.get("eccm", 0.1)),
-                inevadable   = d.get("inevadable", False)
+                key=key, display_name=d["display_name"], seeker=d["seeker"], range_km=d["range_km"],
+                min_range_km=d["min_range_km"], speed_kmh=d["speed_kmh"], base_pk=d["base_pk"],
+                is_gun=d["is_gun"], description=d["description"], domain=d.get("domain", "both"),
+                damage=float(d.get("damage", 0.6)), reload_time_s=float(d.get("reload_time_s", 0.5 if d.get("is_gun") else 3.0)),
+                eccm=float(d.get("eccm", 0.1)), inevadable=d.get("inevadable", False), flight_profile=profile
             )
 
         raw_platforms = {}
         if units_path and os.path.exists(units_path):
-            with open(units_path, encoding="utf-8") as fh:
-                raw_platforms = json.load(fh)
+            with open(units_path, encoding="utf-8") as fh: raw_platforms = json.load(fh)
 
         for key, d in raw_platforms.items():
+            r_rng = d["radar"]["range_km"]
+            # Auto-infer ESM and IR ranges if not specified in JSON
+            esm_val = float(d.get("esm_range_km", r_rng * 1.5 if r_rng > 0 else (10.0 if d["type"] != "tank" else 0.0)))
+            ir_val  = float(d.get("ir_range_km", 40.0 if d["type"] in ("fighter", "attacker", "awacs") else 8.0))
+            
             self.platforms[key] = PlatformDef(
-                key               = key,
-                display_name      = d["display_name"],
-                unit_type         = d["type"],
-                speed_kmh         = d["speed_kmh"],
-                ceiling_ft        = d["ceiling_ft"],
-                ecm_rating        = d["ecm_rating"],
-                chaff_capacity    = int(d.get("chaff_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
-                flare_capacity    = int(d.get("flare_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
-                fuel_capacity_kg  = d.get("fuel_capacity_kg", 5000.0),    
-                fuel_burn_rate_kg_h = d.get("fuel_burn_rate_kg_h", 1500.0),
-                radar_range_km    = d["radar"]["range_km"],
-                radar_type        = d["radar"]["type"],
-                radar_modes       = tuple(d["radar"]["modes"]),
-                default_loadout   = d["default_loadout"],
-                available_weapons = tuple(d.get("available_weapons",
-                                          list(d["default_loadout"].keys()))),
-                fleet_count       = d.get("fleet_count", 0),
-                player_side       = d.get("player_side", "Any"),
-                rcs_m2            = float(d.get("rcs_m2", 5.0)),
-                cruise_alt_ft     = float(d.get("cruise_alt_ft", 0)),
-                rearm_time_s      = float(d.get("rearm_time_s", 120.0)),
+                key=key, display_name=d["display_name"], unit_type=d["type"], speed_kmh=d["speed_kmh"],
+                ceiling_ft=d["ceiling_ft"], ecm_rating=d["ecm_rating"],
+                chaff_capacity=int(d.get("chaff_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
+                flare_capacity=int(d.get("flare_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
+                fuel_capacity_kg=d.get("fuel_capacity_kg", 5000.0), fuel_burn_rate_kg_h=d.get("fuel_burn_rate_kg_h", 1500.0),
+                radar_range_km=r_rng, radar_type=d["radar"]["type"], radar_modes=tuple(d["radar"]["modes"]),
+                esm_range_km=esm_val, ir_range_km=ir_val,
+                default_loadout=d["default_loadout"], available_weapons=tuple(d.get("available_weapons", list(d["default_loadout"].keys()))),
+                fleet_count=d.get("fleet_count", 0), player_side=d.get("player_side", "Any"),
+                rcs_m2=float(d.get("rcs_m2", 5.0)), cruise_alt_ft=float(d.get("cruise_alt_ft", 0)), rearm_time_s=float(d.get("rearm_time_s", 120.0)),
             )
-
-
-# ── Scenario load / save ──────────────────────────────────────────────────────
 
 def load_scenario(path: str, db: Database) -> tuple[list[Unit], dict]:
     with open(path, encoding="utf-8") as fh:

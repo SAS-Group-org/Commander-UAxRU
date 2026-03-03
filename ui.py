@@ -52,6 +52,9 @@ class GameUI:
         self._log_box:      UITextBox      = None        # type: ignore
         self._fow_btn:      UIButton       = None        # type: ignore
         
+        self._air_lbl_btn:  UIButton       = None        # type: ignore
+        self._gnd_lbl_btn:  UIButton       = None        # type: ignore
+        
         self._reinforce_btn: UIButton      = None        # type: ignore
         self._restart_btn:   UIButton      = None        # type: ignore
         
@@ -86,17 +89,17 @@ class GameUI:
         self._build()
 
     _CATEGORIES = [
-        ("───────── AWACS & C2 ─────────",   ("awacs",)),
-        ("───────── FIXED-WING ─────────",   ("fighter", "attacker")),
-        ("───────── ROTARY WING ─────────",  ("helicopter",)),
-        ("───────── LOGISTICS ─────────",    ("airbase",)),
-        ("───────── AIR DEFENSE ─────────",  ("sam",)),
-        ("───────── ARTILLERY ─────────",    ("artillery",)),
-        ("───────── ARMOR (MBT) ─────────",  ("tank",)),
-        ("───────── IFV ─────────",           ("ifv",)),
-        ("───────── APC ─────────",           ("apc",)),
-        ("───────── RECON ─────────",         ("recon",)),
-        ("───────── TANK DESTROY ─────────",  ("tank_destroyer",)),
+        ("─── AWACS & C2 ───",   ("awacs",)),
+        ("─── FIXED-WING ───",   ("fighter", "attacker")),
+        ("─── ROTARY WING ───",  ("helicopter",)),
+        ("─── LOGISTICS ───",    ("airbase",)),
+        ("─── AIR DEFENSE ───",  ("sam",)),
+        ("─── ARTILLERY ───",    ("artillery",)),
+        ("─── ARMOR (MBT) ───",  ("tank",)),
+        ("─── IFV ───",           ("ifv",)),
+        ("─── APC ───",           ("apc",)),
+        ("─── RECON ───",         ("recon",)),
+        ("─── TANK DESTROY ───",  ("tank_destroyer",)),
     ]
     _DIVIDER_PREFIX = "───" 
 
@@ -158,7 +161,7 @@ class GameUI:
             item_list=self._roster_items, manager=self.manager, container=self._panel,
         )
 
-        info_h = panel_h - (_BTN_H + _BTN_PAD) * 8 - _PAD * 3
+        info_h = max(20, panel_h - (_BTN_H + _BTN_PAD) * 7 - _PAD * 3)
         self._setup_info = UITextBox(
             html_text=(
                 "<b>UNIT DEPLOYMENT</b><br>"
@@ -171,7 +174,7 @@ class GameUI:
             manager=self.manager, container=self._panel,
         )
 
-        btn_y = info_h + _PAD * 2
+        btn_y = _PAD + info_h + _PAD
         _LBL_W, _ENTRY_W, _GAP = 28, 52, _PAD
         place_w  = ctrl_w - _LBL_W - _ENTRY_W - _GAP * 2
 
@@ -183,18 +186,27 @@ class GameUI:
         self._place_btn = UIButton(relative_rect=pygame.Rect(ctrl_x + _LBL_W + _ENTRY_W + _GAP * 2, btn_y, place_w, _BTN_H), text="Place on Map", manager=self.manager, container=self._panel)
         btn_y += _BTN_H + _BTN_PAD
 
-        for label, attr in [
-            ("Remove Selected",     "_remove_btn"),
-            ("Clear All Blue",      "_clear_btn"),
-            ("Auto Deploy Blue",    "_auto_deploy_btn"),
-            ("Save Deployment",     "_save_deploy_btn"),
-            ("Load Deployment",     "_load_deploy_btn"),
-            ("FOG OF WAR: ON",      "_fow_btn"),
-            ("▶  START SIMULATION", "_start_btn")
-        ]:
-            btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, ctrl_w, _BTN_H), text=label, manager=self.manager, container=self._panel)
-            setattr(self, attr, btn)
-            btn_y += _BTN_H + _BTN_PAD
+        btn_w_half = (ctrl_w - _BTN_PAD) // 2
+
+        self._remove_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, btn_w_half, _BTN_H), text="Remove Sel", manager=self.manager, container=self._panel)
+        self._clear_btn = UIButton(relative_rect=pygame.Rect(ctrl_x + btn_w_half + _BTN_PAD, btn_y, btn_w_half, _BTN_H), text="Clear Blue", manager=self.manager, container=self._panel)
+        btn_y += _BTN_H + _BTN_PAD
+
+        self._save_deploy_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, btn_w_half, _BTN_H), text="Save Deploy", manager=self.manager, container=self._panel)
+        self._load_deploy_btn = UIButton(relative_rect=pygame.Rect(ctrl_x + btn_w_half + _BTN_PAD, btn_y, btn_w_half, _BTN_H), text="Load Deploy", manager=self.manager, container=self._panel)
+        btn_y += _BTN_H + _BTN_PAD
+
+        self._auto_deploy_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, ctrl_w, _BTN_H), text="Auto Deploy Blue", manager=self.manager, container=self._panel)
+        btn_y += _BTN_H + _BTN_PAD
+
+        self._fow_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, ctrl_w, _BTN_H), text="FOG OF WAR: ON", manager=self.manager, container=self._panel)
+        btn_y += _BTN_H + _BTN_PAD
+
+        self._air_lbl_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, btn_w_half, _BTN_H), text="AIR LBL: ON", manager=self.manager, container=self._panel)
+        self._gnd_lbl_btn = UIButton(relative_rect=pygame.Rect(ctrl_x + btn_w_half + _BTN_PAD, btn_y, btn_w_half, _BTN_H), text="GND LBL: ON", manager=self.manager, container=self._panel)
+        btn_y += _BTN_H + _BTN_PAD
+
+        self._start_btn = UIButton(relative_rect=pygame.Rect(ctrl_x, btn_y, ctrl_w, _BTN_H), text="▶  START SIMULATION", manager=self.manager, container=self._panel)
 
     def _build_combat(self, panel_h: int) -> None:
         c1, c2, c3 = self._col_widths()
@@ -267,7 +279,6 @@ class GameUI:
                 text=label, manager=self.manager, container=self._panel,
             ))
 
-        # NEW: Reinforcement and Restart Controls
         btn_y = _PAD + _BTN_H + _BTN_PAD
         btn_w_half_col3 = (c3 - _BTN_PAD) // 2
         self._reinforce_btn = UIButton(relative_rect=pygame.Rect(col3_x, btn_y, btn_w_half_col3, _BTN_H), text="REINFORCE", tool_tip_text="Pause and open deployment menu", manager=self.manager, container=self._panel)
@@ -276,7 +287,11 @@ class GameUI:
         fow_y = btn_y + _BTN_H + _BTN_PAD
         self._fow_btn = UIButton(relative_rect=pygame.Rect(col3_x, fow_y, c3, _BTN_H), text="FOG OF WAR: ON", manager=self.manager, container=self._panel)
 
-        log_y = fow_y + _BTN_H + _BTN_PAD
+        lbl_y = fow_y + _BTN_H + _BTN_PAD
+        self._air_lbl_btn = UIButton(relative_rect=pygame.Rect(col3_x, lbl_y, btn_w_half_col3, _BTN_H), text="AIR LBL: ON", manager=self.manager, container=self._panel)
+        self._gnd_lbl_btn = UIButton(relative_rect=pygame.Rect(col3_x + btn_w_half_col3 + _BTN_PAD, lbl_y, btn_w_half_col3, _BTN_H), text="GND LBL: ON", manager=self.manager, container=self._panel)
+
+        log_y = lbl_y + _BTN_H + _BTN_PAD
         self._log_box = UITextBox(
             html_text="<b>EVENT LOG</b>",
             relative_rect=pygame.Rect(col3_x, log_y, c3, panel_h - log_y - _PAD),
@@ -359,6 +374,9 @@ class GameUI:
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == getattr(self, "_fow_btn", None): return {"type": "toggle_fow"}
+            if event.ui_element == getattr(self, "_air_lbl_btn", None): return {"type": "toggle_air_labels"}
+            if event.ui_element == getattr(self, "_gnd_lbl_btn", None): return {"type": "toggle_ground_labels"}
+            
             if event.ui_element == getattr(self, "_auto_engage_btn", None): return {"type": "toggle_auto_engage"}
             if event.ui_element == getattr(self, "_roe_btn", None): return {"type": "toggle_roe"}
             if event.ui_element == getattr(self, "_ecm_btn", None): return {"type": "toggle_ecm"}
@@ -415,7 +433,15 @@ class GameUI:
                             return {"type": "weapon_select", "weapon_key": key}
         return {}
 
-    def update(self, time_delta: float, sim: Optional[SimulationEngine], selected: Optional[Unit], placing_type: Optional[str] = None, placing_remaining: int = 0, show_all_enemies: bool = False, blue_contacts: dict | None = None) -> None:
+    def update(self, time_delta: float, sim: Optional[SimulationEngine], selected: Optional[Unit], 
+               placing_type: Optional[str] = None, placing_remaining: int = 0, 
+               show_all_enemies: bool = False, blue_contacts: dict | None = None,
+               show_air_labels: bool = True, show_ground_labels: bool = True) -> None:
+        
+        # Label Toggles Setup
+        if getattr(self, "_air_lbl_btn", None): self._air_lbl_btn.set_text(f"AIR LBL: {'ON' if show_air_labels else 'OFF'}")
+        if getattr(self, "_gnd_lbl_btn", None): self._gnd_lbl_btn.set_text(f"GND LBL: {'ON' if show_ground_labels else 'OFF'}")
+
         if self._mode == "setup":
             if self._setup_info:
                 if placing_type:
@@ -571,7 +597,11 @@ class GameUI:
                 elif selected.side == "Blue":
                     msn_str = f"<b>Mission:</b> {selected.mission.mission_type} ({selected.mission.name})" if selected.mission else "<b>Mission:</b> NONE"
                     fuel_str = f"<b>Fuel:</b> <font color='{fuel_col}'>{int(fuel_pct)}%</font> ({int(selected.fuel_kg)} kg)" if p.unit_type not in ("airbase", "artillery", "sam", "tank", "ifv", "apc", "recon", "tank_destroyer") else ""
-                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  {fuel_str}<br>{msn_str}<br>{state_str}<br><b>Radar:</b> {p.radar_range_km} km ({'ON' if getattr(selected, 'radar_active', True) else 'OFF'})  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})<br><b>Chaff/Flare:</b> {selected.chaff} / {selected.flare}<br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
+                    
+                    link_color = "#44FF44" if getattr(selected, 'datalink_active', True) else "#FF4444"
+                    link_text = "LINK-16: ON" if getattr(selected, 'datalink_active', True) else "DATALINK OFFLINE"
+                    
+                    self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Blue]<br><b>Type:</b> {p.display_name}<br><b>HP:</b> <font color='{hp_col}'>{hp_pct}% ({selected.damage_state})</font>  {fuel_str}<br>{msn_str}<br>{state_str}<br><b>Radar:</b> {p.radar_range_km} km ({'ON' if getattr(selected, 'radar_active', True) else 'OFF'})  <b>ECM:</b> {int(p.ecm_rating*100)}% ({'ACTIVE' if selected.is_jamming else 'PASSIVE'})<br><b><font color='{link_color}'>{link_text}</font></b><br><b>HDG:</b> {selected.heading:05.1f}°  <b>Pos:</b> {selected.lat:.3f}°N  {selected.lon:.3f}°E<br><b>Route:</b> {wp} wp{'s' if wp!=1 else ''}")
                 else:
                     self._nav_box.set_text(f"<b>{selected.callsign}</b>  [Red]<br><b>Type:</b> {p.display_name}<br><b>Not currently tracked</b>")
             else:

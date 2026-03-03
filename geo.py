@@ -52,3 +52,41 @@ def world_to_screen(lat: float, lon: float,
     """Convert lat/lon to on-screen pixel coordinates."""
     ax, ay = lat_lon_to_pixel(lat, lon, zoom)
     return ax - cam_px + map_w / 2, ay - cam_py + map_h / 2
+
+def get_elevation_ft(lat: float, lon: float) -> float:
+    """Procedural pseudo-DEM for Eastern Europe / Ukraine without huge files."""
+    # Black sea bounding
+    if lat < 46.5 and lon < 36.0 and lat < (46.5 - (36.0 - lon)*0.5): return 0.0 
+    
+    # Base rolling hills for Donbas/Central
+    hills = (math.sin(lat * 15.0) * math.cos(lon * 15.0)) * 400.0
+    
+    # Carpathian mountains in the far west
+    if lon < 26.0:
+        mountains = (math.sin(lat * 20.0) * math.cos(lon * 20.0)) * 3500.0
+        return max(0.0, 1000.0 + hills + mountains)
+        
+    return max(0.0, 300.0 + hills)
+
+def check_line_of_sight(lat1: float, lon1: float, alt1_ft: float, 
+                        lat2: float, lon2: float, alt2_ft: float) -> bool:
+    """Checks radar horizon curvature AND intermediate terrain masking."""
+    # 1. Earth Curvature (Radar Horizon)
+    alt1_m = max(alt1_ft * 0.3048, 5.0)
+    alt2_m = max(alt2_ft * 0.3048, 5.0)
+    horizon_km = 4.12 * (math.sqrt(alt1_m) + math.sqrt(alt2_m))
+    
+    dist_km = haversine(lat1, lon1, lat2, lon2)
+    if dist_km > horizon_km: 
+        return False
+
+    # 2. Fast Midpoint Terrain Raycast (Mountains blocking low-flyers)
+    mid_lat = (lat1 + lat2) / 2.0
+    mid_lon = (lon1 + lon2) / 2.0
+    mid_terrain_ft = get_elevation_ft(mid_lat, mid_lon)
+    
+    mid_ray_alt_ft = (alt1_ft + alt2_ft) / 2.0
+    if mid_ray_alt_ft < mid_terrain_ft:
+        return False # A hill/mountain is between the sensor and the target
+        
+    return True
