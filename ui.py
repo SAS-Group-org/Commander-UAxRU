@@ -52,6 +52,9 @@ class GameUI:
         self._log_box:      UITextBox      = None        # type: ignore
         self._fow_btn:      UIButton       = None        # type: ignore
         
+        self._reinforce_btn: UIButton      = None        # type: ignore
+        self._restart_btn:   UIButton      = None        # type: ignore
+        
         self._auto_engage_btn: UIButton    = None        # type: ignore
         self._roe_btn:      UIButton       = None        # type: ignore
         self._ecm_btn:      UIButton       = None        # type: ignore
@@ -83,16 +86,17 @@ class GameUI:
         self._build()
 
     _CATEGORIES = [
-        ("─── FIXED-WING ───",   ("fighter", "attacker")),
-        ("─── ROTARY WING ───",  ("helicopter",)),
-        ("─── LOGISTICS ───",    ("airbase",)),
-        ("─── AIR DEFENSE ───",  ("sam",)),
-        ("─── ARTILLERY ───",    ("artillery",)),
-        ("─── ARMOR (MBT) ───",  ("tank",)),
-        ("─── IFV ───",           ("ifv",)),
-        ("─── APC ───",           ("apc",)),
-        ("─── RECON ───",         ("recon",)),
-        ("─── TANK DESTROY ───",  ("tank_destroyer",)),
+        ("───────── AWACS & C2 ─────────",   ("awacs",)),
+        ("───────── FIXED-WING ─────────",   ("fighter", "attacker")),
+        ("───────── ROTARY WING ─────────",  ("helicopter",)),
+        ("───────── LOGISTICS ─────────",    ("airbase",)),
+        ("───────── AIR DEFENSE ─────────",  ("sam",)),
+        ("───────── ARTILLERY ─────────",    ("artillery",)),
+        ("───────── ARMOR (MBT) ─────────",  ("tank",)),
+        ("───────── IFV ─────────",           ("ifv",)),
+        ("───────── APC ─────────",           ("apc",)),
+        ("───────── RECON ─────────",         ("recon",)),
+        ("───────── TANK DESTROY ─────────",  ("tank_destroyer",)),
     ]
     _DIVIDER_PREFIX = "───" 
 
@@ -229,7 +233,6 @@ class GameUI:
         self._assign_cap_btn = UIButton(relative_rect=pygame.Rect(col1_x, row4_y, btn_w_half, _BTN_H), text="ASSIGN CAP", tool_tip_text="Click map to set CAP center", manager=self.manager, container=self._panel)
         self._clear_msn_btn  = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_half + _BTN_PAD, row4_y, btn_w_half, _BTN_H), text="CLEAR MSN", manager=self.manager, container=self._panel)
         
-        # Pre-launch configuration buttons
         self._cycle_msn_btn = UIButton(relative_rect=pygame.Rect(col1_x, row5_y, btn_w_third, _BTN_H), text="MSN: CAP", manager=self.manager, container=self._panel)
         self._cycle_ldt_btn = UIButton(relative_rect=pygame.Rect(col1_x + btn_w_third + _BTN_PAD, row5_y, btn_w_third, _BTN_H), text="LDT: DEF", manager=self.manager, container=self._panel)
         self._launch_btn    = UIButton(relative_rect=pygame.Rect(col1_x + (btn_w_third + _BTN_PAD)*2, row5_y, btn_w_third, _BTN_H), text="LAUNCH", manager=self.manager, container=self._panel)
@@ -264,7 +267,13 @@ class GameUI:
                 text=label, manager=self.manager, container=self._panel,
             ))
 
-        fow_y = _PAD + _BTN_H + _BTN_PAD
+        # NEW: Reinforcement and Restart Controls
+        btn_y = _PAD + _BTN_H + _BTN_PAD
+        btn_w_half_col3 = (c3 - _BTN_PAD) // 2
+        self._reinforce_btn = UIButton(relative_rect=pygame.Rect(col3_x, btn_y, btn_w_half_col3, _BTN_H), text="REINFORCE", tool_tip_text="Pause and open deployment menu", manager=self.manager, container=self._panel)
+        self._restart_btn = UIButton(relative_rect=pygame.Rect(col3_x + btn_w_half_col3 + _BTN_PAD, btn_y, btn_w_half_col3, _BTN_H), text="RESTART", tool_tip_text="Reset scenario to start", manager=self.manager, container=self._panel)
+
+        fow_y = btn_y + _BTN_H + _BTN_PAD
         self._fow_btn = UIButton(relative_rect=pygame.Rect(col3_x, fow_y, c3, _BTN_H), text="FOG OF WAR: ON", manager=self.manager, container=self._panel)
 
         log_y = fow_y + _BTN_H + _BTN_PAD
@@ -377,6 +386,9 @@ class GameUI:
                 if event.ui_element == getattr(self, "_start_btn", None): return {"type": "start_sim"}
 
             if self._mode == "combat":
+                if getattr(self, "_reinforce_btn", None) and event.ui_element == self._reinforce_btn: return {"type": "enter_setup"}
+                if getattr(self, "_restart_btn", None) and event.ui_element == self._restart_btn: return {"type": "restart_scenario"}
+
                 if hasattr(self, "_climb_5k_btn"):
                     if event.ui_element == self._climb_5k_btn: return {"type": "change_alt", "delta": 5000}
                     if event.ui_element == self._climb_1k_btn: return {"type": "change_alt", "delta": 1000}
@@ -420,7 +432,7 @@ class GameUI:
                             p   = self._db.platforms.get(key)
                             if p:
                                 type_labels = {
-                                    "fighter":"Fighter", "attacker":"Attack", "helicopter":"Helicopter",
+                                    "fighter":"Fighter", "attacker":"Attack", "helicopter":"Helicopter", "awacs": "AWACS / C2",
                                     "tank":"MBT", "ifv":"IFV", "apc":"APC", "recon":"Recon",
                                     "tank_destroyer":"Tank Destroyer", "sam":"Air Defense",
                                     "airbase":"Logistics Node", "artillery":"Artillery"
@@ -429,6 +441,11 @@ class GameUI:
                                 spd_lbl = "km/h" if p.unit_type not in ("tank","ifv","apc","recon","tank_destroyer","sam","airbase","artillery") else "km/h (road)"
                                 sel_str = f"<b>Selected:</b> {p.display_name}<br><b>Type:</b> {tl}  ×{p.fleet_count} in service<br>Spd {p.speed_kmh} {spd_lbl}  Detect {p.radar_range_km} km<br>ECM {int(p.ecm_rating*100)}%<br><br>"
                     self._setup_info.set_text(f"<b>DEPLOYMENT PHASE</b><br>Blue units placed: <b>{placed}</b><br><br>{sel_str}Select type → Place on Map<br>Right-click unit to remove")
+                    
+            if sim and sim.game_time > 0 and getattr(self, "_start_btn", None):
+                self._start_btn.set_text("▶ RESUME SIMULATION")
+            elif getattr(self, "_start_btn", None):
+                self._start_btn.set_text("▶ START SIMULATION")
         else:  
             if sim is None: return
 
@@ -436,7 +453,7 @@ class GameUI:
                 p = selected.platform
                 wp = len(selected.waypoints)
 
-                is_blue_air = selected.side == "Blue" and p.unit_type in ("fighter", "attacker", "helicopter")
+                is_blue_air = selected.side == "Blue" and p.unit_type in ("fighter", "attacker", "helicopter", "awacs")
                 is_parked   = is_blue_air and selected.duty_state == "READY"
                 is_flying   = is_blue_air and selected.duty_state == "ACTIVE"
                 
@@ -528,7 +545,7 @@ class GameUI:
                 hp_pct = int(selected.hp * 100)
                 hp_col = "#FF4444" if hp_pct <= 25 else "#FFAA00" if hp_pct <= 50 else "#FFFF00" if hp_pct <= 75 else "#44FF44"
 
-                if p.unit_type in ("fighter", "attacker", "helicopter"):
+                if p.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                     if selected.duty_state == "REARMING":
                         state_str = f"<b>Status:</b> <font color='#FFAA00'>REARMING ({int(selected.duty_timer)}s)</font>"
                     elif selected.duty_state == "READY":

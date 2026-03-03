@@ -416,5 +416,15 @@
   "Flamingo_TEL": { "display_name": "FP-5 Flamingo TEL", "type": "artillery", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": { "FP-5_Flamingo": 1},
     "available_weapons": ["FP-5_Flamingo"], "fleet_count": 20, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+  },
+  "E-3G_Sentry": {
+    "display_name": "E-3G Sentry (AWACS)", "type": "awacs", "speed_kmh": 850, "ceiling_ft": 40000, "ecm_rating": 0.20,
+    "radar": {"type": "AN/APY-2", "range_km": 600, "modes": ["air", "surface"]}, "default_loadout": {},
+    "available_weapons": [], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 30.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0
+  },
+  "A-50U_Mainstay": {
+    "display_name": "A-50U Mainstay (AWACS)", "type": "awacs", "speed_kmh": 800, "ceiling_ft": 39000, "ecm_rating": 0.15,
+    "radar": {"type": "Shmel-M", "range_km": 500, "modes": ["air", "surface"]}, "default_loadout": {},
+    "available_weapons": [], "fleet_count": 0, "player_side": "Red", "rcs_m2": 35.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0
   }
 }

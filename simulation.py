@@ -79,7 +79,7 @@ class SimulationEngine:
 
     def _unit_defensive_ai(self, sim_delta: float) -> None:
         for u in self.units:
-            if not u.alive or u.platform.unit_type not in ("fighter", "attacker", "helicopter"):
+            if not u.alive or u.platform.unit_type not in ("fighter", "attacker", "helicopter", "awacs"):
                 continue
 
             incoming = [m for m in self.missiles if m.active and m.target == u]
@@ -132,7 +132,7 @@ class SimulationEngine:
     def queue_salvo(self, shooter: Unit, target: Unit, weapon_key: str, count: int, doctrine: str) -> None:
         wdef = self.db.weapons.get(weapon_key)
         if not wdef: return
-        target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter")
+        target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
         if wdef.domain == "air" and not target_is_air: return
         if wdef.domain == "ground" and target_is_air: return
         self.salvos.append(SalvoMission(shooter, target, weapon_key, count, doctrine))
@@ -165,7 +165,7 @@ class SimulationEngine:
     def _move_units(self, sim_delta: float) -> None:
         for u in self.units:
             u.update(sim_delta)
-            if u.duty_state != "ACTIVE" and u.platform.unit_type in ("fighter", "attacker", "helicopter"):
+            if u.duty_state != "ACTIVE" and u.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                 base = self.get_unit_by_uid(u.home_uid)
                 if base: u.lat, u.lon = base.lat, base.lon
 
@@ -207,10 +207,20 @@ class SimulationEngine:
     def _auto_engage_shooter(self, shooter: Unit, targets: list[Unit], contacts: dict[str, Contact]) -> None:
         if shooter.roe == "HOLD": return
         
+        # Enforce Shoot-Look-Shoot: find all enemy targets currently being engaged by our side
+        engaged_uids = set()
+        for m in self.missiles:
+            if m.active and m.side == shooter.side:
+                engaged_uids.add(m.target.uid)
+        for s in self.salvos:
+            if s.shooter.side == shooter.side and s.count > 0:
+                engaged_uids.add(s.target.uid)
+        
         # SEAD AI Logic
         if shooter.mission and shooter.mission.mission_type == "SEAD":
             valid_targets = []
             for host in targets:
+                if host.uid in engaged_uids: continue  # SLS constraint applied
                 contact = contacts.get(host.uid)
                 if not contact or contact.classification == "FAINT": continue
                 score = 0
@@ -220,11 +230,12 @@ class SimulationEngine:
             valid_targets.sort(key=lambda x: x[0], reverse=True)
             targets_to_check = [t[1] for t in valid_targets]
         else:
-            targets_to_check = targets
+            targets_to_check = [t for t in targets if t.uid not in engaged_uids]  # SLS constraint applied
             
         for host in targets_to_check:
             contact = contacts.get(host.uid)
             if not contact or contact.classification == "FAINT": continue
+            
             wkey = shooter.best_weapon_for(self.db, host)
             if wkey:
                 wdef = self.db.weapons[wkey]
@@ -241,7 +252,7 @@ class SimulationEngine:
                     if not m.target.alive: self.log(f"SPLASH {m.target.callsign}!")
                 elif m.status == "MISSED":
                     # Differentiate the log message based on unit type
-                    if m.target.platform.unit_type in ("fighter", "attacker", "helicopter"):
+                    if m.target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                         self.log(f"{m.target.callsign} evaded.")
                     else:
                         self.log(f"Missile missed {m.target.callsign}.")
@@ -253,6 +264,14 @@ class SimulationEngine:
         red_active  = [u for u in self.units if u.side == "Red"  and u.alive]
         update_contacts(blue_active, red_active, self.blue_contacts, self.game_time)
         update_contacts(red_active, blue_active, self._red_contacts, self.game_time)
+
+        # Sync the datalink dictionary back to the physical units 
+        # so the player can right-click on targets spotted by the AWACS
+        for u in self.units:
+            if u.side == "Red":
+                u.is_detected = (u.uid in self.blue_contacts)
+            elif u.side == "Blue":
+                u.is_detected = (u.uid in self._red_contacts)
 
     def _tick_flashes(self) -> None:
         for u in self.units: u.tick_flash()

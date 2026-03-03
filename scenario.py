@@ -264,7 +264,7 @@ class Unit:
                 self.duty_state = "READY"
                 self.duty_timer = 0.0
                 
-        if self.platform.unit_type in ("fighter", "attacker", "helicopter") and self.duty_state != "ACTIVE":
+        if self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs") and self.duty_state != "ACTIVE":
             return
         
         for k in self.weapon_cooldowns:
@@ -302,7 +302,7 @@ class Unit:
                     dist_budget = 0
                     self._recalc_heading()
 
-        if self.fuel_kg > 0 and self.platform.unit_type in ("fighter", "attacker", "helicopter"):
+        if self.fuel_kg > 0 and self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
             burn_per_sec = self.platform.fuel_burn_rate_kg_h / 3600.0
             self.fuel_kg -= burn_per_sec * sim_delta
             if self.fuel_kg <= 0:
@@ -357,7 +357,7 @@ class Unit:
         return new_role
 
     def best_weapon_for(self, db: "Database", target: "Unit") -> Optional[str]:
-        target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter")
+        target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
         best_key   = None
         best_score = -1.0
         is_sead = self.mission and self.mission.mission_type == "SEAD"
@@ -441,8 +441,8 @@ class Database:
                 speed_kmh         = d["speed_kmh"],
                 ceiling_ft        = d["ceiling_ft"],
                 ecm_rating        = d["ecm_rating"],
-                chaff_capacity    = int(d.get("chaff_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter") else 0)),
-                flare_capacity    = int(d.get("flare_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter") else 0)),
+                chaff_capacity    = int(d.get("chaff_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
+                flare_capacity    = int(d.get("flare_capacity", 30 if d["type"] in ("fighter", "attacker", "helicopter", "awacs") else 0)),
                 fuel_capacity_kg  = d.get("fuel_capacity_kg", 5000.0),    
                 fuel_burn_rate_kg_h = d.get("fuel_burn_rate_kg_h", 1500.0),
                 radar_range_km    = d["radar"]["range_km"],

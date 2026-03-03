@@ -270,7 +270,7 @@ class Renderer:
             elif cls == "PROBABLE":
                 color = CONTACT_PROBABLE_COLOR
                 utype = contact.unit_type or "unknown"
-                if utype in ("fighter", "attacker", "helicopter"):
+                if utype in ("fighter", "attacker", "helicopter", "awacs"):
                     pts = [(sx, sy - 9), (sx + 8, sy + 5), (sx - 8, sy + 5)]
                     pygame.draw.polygon(self.surface, color, pts, 2)
                 else:

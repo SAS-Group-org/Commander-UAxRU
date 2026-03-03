@@ -143,7 +143,7 @@ _CLUSTERS = [
     
     # Russian Mainland Airbases
     {"name": "MILLEROVO AIR",     "lat": 48.93, "lon": 40.39, "spread": 0.05, "mix": {"airbase":1, "fighter":2,"attacker":1, "sam":2}},
-    {"name": "MOROZOVSK AIR",     "lat": 48.35, "lon": 41.83, "spread": 0.05, "mix": {"airbase":1, "fighter":2, "sam":2}},
+    {"name": "MOROZOVSK AIR",     "lat": 48.35, "lon": 41.83, "spread": 0.05, "mix": {"airbase":1, "fighter":2, "sam":2, "awacs":1}},
     
     # Crimean Peninsula Bases
     {"name": "CRIMEA CENTRAL",    "lat": 45.28, "lon": 34.03, "spread": 0.15, "mix": {"tank":4,"ifv":5,"apc":4,"recon":2,"sam":3}},
@@ -163,6 +163,7 @@ _RED_GROUND_POOLS: dict[str, list[str]] = {
     "helicopter":     ["Mi-24V", "Mi-8UA"],
     "sam":            ["S-400", "Buk-M2", "Buk-M2", "Tor-M1", "Tor-M1"],
     "airbase":        ["AirbaseR"],
+    "awacs":          ["A-50U_Mainstay"],
 }
 
 _GROUND_CALLSIGNS: dict[str, list[str]] = {
@@ -176,6 +177,7 @@ _GROUND_CALLSIGNS: dict[str, list[str]] = {
     "attacker":       ["FROG","SNAKE","JACKAL"],
     "helicopter":     ["HIND","BEAR","SWIFT"],
     "airbase":        ["STRATEGIC"],
+    "awacs":          ["MAINSTAY", "EYE", "WATCHER"],
 }
 
 _GROUND_SIDE_NUMBERS: dict[str, int] = {} 
@@ -243,14 +245,14 @@ def _generate_scenario(db: "Database") -> dict:
                     "waypoints":  [],
                 }
 
-                if utype in ("fighter", "attacker", "helicopter"):
+                if utype in ("fighter", "attacker", "helicopter", "awacs"):
                     entry["mission"] = {
                         "name": f"Patrol {callsign}",
-                        "type": "CAP" if utype=="fighter" else "STRIKE",
+                        "type": "CAP" if utype in ("fighter", "awacs") else "STRIKE",
                         "lat": lat + rng.uniform(-0.5, 0.5),
                         "lon": lon + rng.uniform(-0.5, 0.5),
                         "radius": 40.0,
-                        "alt": 30000.0 if utype=="fighter" else 15000.0,
+                        "alt": 30000.0 if utype in ("fighter", "awacs") else 15000.0,
                         "rtb_fuel": 0.25
                     }
 
@@ -258,7 +260,7 @@ def _generate_scenario(db: "Database") -> dict:
 
     red_bases = [u for u in units if db.platforms[u["platform"]].unit_type == "airbase"]
     for u in units:
-        if db.platforms[u["platform"]].unit_type in ("fighter", "attacker", "helicopter"):
+        if db.platforms[u["platform"]].unit_type in ("fighter", "attacker", "helicopter", "awacs"):
             if red_bases:
                 closest = min(red_bases, key=lambda b: haversine(b["lat"], b["lon"], u["lat"], u["lon"]))
                 u["home_uid"] = closest["id"]
@@ -268,7 +270,7 @@ def _generate_scenario(db: "Database") -> dict:
 
     red_count    = len(units)
     ground_count = sum(1 for u in units if db.platforms.get(u["platform"], type("P",(object,),{"unit_type":""})()).unit_type in ("tank","ifv","apc","recon","tank_destroyer", "sam", "artillery"))
-    air_count    = sum(1 for u in units if db.platforms.get(u["platform"], type("P",(object,),{"unit_type":""})()).unit_type in ("fighter", "attacker", "helicopter"))
+    air_count    = sum(1 for u in units if db.platforms.get(u["platform"], type("P",(object,),{"unit_type":""})()).unit_type in ("fighter", "attacker", "helicopter", "awacs"))
 
     print(f"[GEN] Red force: {red_count} total ({ground_count} ground, {air_count} air)")
 
@@ -293,7 +295,7 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
     blue_clusters = [
         {"name": "STAROKOSTIANTYNIV", "lat": 49.74, "lon": 27.27, "mix": {"AirbaseB": 1, "Patriot": 1, "F-16A": 4, "Su-24M": 2}},
         {"name": "LVIV", "lat": 49.83, "lon": 24.02, "mix": {"AirbaseB": 1, "IRIS-T_SLM": 1, "MiG-29UA": 4}},
-        {"name": "KYIV", "lat": 50.45, "lon": 30.52, "mix": {"AirbaseB": 1, "Patriot": 2, "NASAMS": 2, "F-16C": 2, "M142_HIMARS": 2}},
+        {"name": "KYIV", "lat": 50.45, "lon": 30.52, "mix": {"AirbaseB": 1, "Patriot": 2, "NASAMS": 2, "F-16C": 2, "M142_HIMARS": 2, "E-3G_Sentry": 1}},
         {"name": "ODESA", "lat": 46.48, "lon": 30.72, "mix": {"AirbaseB": 1, "Patriot": 1, "MiG-29UA": 2, "Gepard": 2, "M777": 4}},
         {"name": "ZHYTOMYR", "lat": 50.25, "lon": 28.65, "mix": {"AirbaseB": 1, "Su-27UA": 2, "Mi-24V": 2, "IRIS-T_SLM": 1, "M270_MLRS": 1}},
         {"name": "DNIPRO", "lat": 48.46, "lon": 35.04, "mix": {"Leopard2": 2, "Bradley": 4, "Gepard": 2, "PzH2000": 3}},
@@ -331,7 +333,7 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
                     if _is_water(lat, lon):
                         lat, lon = clat, clon 
                         
-                if plat.unit_type in ("fighter", "attacker", "helicopter"):
+                if plat.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                     lat, lon = clat, clon 
                     
                 n = placement_counts.get(utype, 0) + 1
@@ -340,7 +342,7 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
                 
                 unit = _make_blue_unit(utype, lat, lon, db, callsign)
                 if unit:
-                    if plat.unit_type in ("fighter", "attacker", "helicopter") and base_uid:
+                    if plat.unit_type in ("fighter", "attacker", "helicopter", "awacs") and base_uid:
                         unit.home_uid = base_uid
                         unit.duty_state = "READY"
                         unit.altitude_ft = 0
@@ -391,7 +393,7 @@ def _callsign_for(platform_key: str, index: int) -> str:
         "F-16C":        "FALCON", "F-16UA":       "FALCON", "Su-25UA":      "WARTHOG", "Su-24M":       "SWORD", 
         "Mirage2000-5F":"ANGEL", "Mi-8UA":       "BEAR", "Mi-24V":       "HIND", "Mi-2UA":       "SWIFT", 
         "Ka-27":        "SHARK", "Mi-14":        "HAZE", "SeaKing":      "KING", "AirbaseB":     "ALPHA BASE", 
-        "CarrierB":     "NIMITZ", "Bayraktar_TB2": "DRONE"
+        "CarrierB":     "NIMITZ", "Bayraktar_TB2": "DRONE", "E-3G_Sentry": "SENTRY", "A-50U_Mainstay": "MAINSTAY"
     }
     prefix = prefixes.get(platform_key, "UNIT")
     return f"{prefix} {index}"
@@ -466,13 +468,14 @@ def main() -> None:
     cam      = CameraState(meta["start_lat"], meta["start_lon"],
                            meta["start_zoom"], win_w, win_h)
 
-    app_mode:       str             = "setup"   
+    app_mode:          str             = "setup"   
     placing_type:      str | None      = None      
     placing_remaining: int             = 0         
     selected_unit:     Unit | None     = None
     assigning_mission: str | None      = None
     is_dragging:       bool            = False
     show_all_enemies:  bool            = False
+    game_over_triggered: bool          = False
 
     running = True
     while running:
@@ -534,8 +537,9 @@ def main() -> None:
                 )
                 if path and os.path.exists(path):
                     loaded_blues = load_deployment(path, db)
-                    sim.units = [u for u in sim.units if u.side == "Red"]
+                    # Appends to the simulation instead of wiping, creating mid-game reinforcements
                     sim.units.extend(loaded_blues)
+                    sim.log(f"Deployed {len(loaded_blues)} reinforcement units.")
                 root.destroy()
             elif action.get("type") == "remove_selected":
                 if selected_unit and selected_unit.side == "Blue":
@@ -551,7 +555,30 @@ def main() -> None:
                 app_mode = "combat"
                 ui.set_mode("combat")
                 sim.set_compression(TIME_SPEEDS[ui.active_speed_idx])
-                sim.log(f"Simulation started — {len(sim.blue_units())} Blue, {len(sim.red_units())} Red")
+                sim.log(f"Simulation {'resumed' if sim.game_time > 0 else 'started'} — {len(sim.blue_units())} Blue, {len(sim.red_units())} Red")
+            elif action.get("type") == "enter_setup":
+                app_mode = "setup"
+                ui.set_mode("setup")
+                sim.set_compression(0)
+                sim.log("Simulation paused for reinforcements.")
+            elif action.get("type") == "restart_scenario":
+                fresh_units, meta = load_scenario(SCENARIO_PATH, db)
+                sim.units = fresh_units
+                sim.missiles.clear()
+                sim.salvos.clear()
+                sim.game_time = 0.0
+                sim.event_log.clear()
+                sim.blue_contacts.clear()
+                sim._red_contacts.clear()
+                sim.set_compression(0)
+                app_mode = "setup"
+                ui.set_mode("setup")
+                selected_unit = None
+                placing_type = None
+                placing_remaining = 0
+                assigning_mission = None
+                game_over_triggered = False
+                sim.log("Scenario restarted.")
             elif action.get("type") == "toggle_fow":
                 show_all_enemies = not show_all_enemies
             elif action.get("type") == "toggle_auto_engage" and selected_unit:
@@ -617,7 +644,7 @@ def main() -> None:
                     selected_unit.selected_weapon = wkey
                 ui.rebuild_weapon_buttons(selected_unit, sim)
             elif action.get("type") == "change_alt" and selected_unit:
-                if selected_unit.platform.unit_type in ("fighter", "attacker", "helicopter"):
+                if selected_unit.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                     new_alt = selected_unit.target_altitude_ft + action["delta"]
                     clamped_alt = max(0.0, min(float(selected_unit.platform.ceiling_ft), new_alt))
                     selected_unit.target_altitude_ft = clamped_alt
@@ -669,7 +696,7 @@ def main() -> None:
                                 continue
 
                         home_uid = ""
-                        if plat.unit_type in ("fighter", "attacker", "helicopter"):
+                        if plat.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                             bases = [u for u in sim.units if u.side == "Blue" and u.platform.unit_type == "airbase"]
                             if not bases:
                                 print("Cannot place aircraft: No friendly airbases available!")
@@ -763,7 +790,6 @@ def main() -> None:
 
                 elif event.button in (4, 5):
                     mx, my = event.pos
-                    # If hovering over the UI panel, zoom to center instead
                     if my > cur_map_h:
                         mx, my = cam.win_w / 2, cur_map_h / 2
                     cam.zoom_by(1 if event.button == 4 else -1, mx, my)
@@ -789,10 +815,13 @@ def main() -> None:
                 selected_unit = None
                 ui.rebuild_weapon_buttons(None, sim)
 
-            result = sim.is_game_over()
-            if result:
-                sim.log(f"*** {result.upper()} ***")
-                sim.set_compression(0)
+            # Check for win/loss only if we haven't already triggered the end state
+            if not game_over_triggered:
+                result = sim.is_game_over()
+                if result:
+                    sim.log(f"*** {result.upper()} ***")
+                    sim.set_compression(0)
+                    game_over_triggered = True
 
         renderer.draw_frame(cam_px, cam_py, cam.zoom,
                             sim.units, sim.missiles,
