@@ -41,11 +41,9 @@ class SimulationEngine:
         self.paused:           bool  = False
         self.event_log: deque[str] = deque(maxlen=_MAX_LOG)
         
-        # The Master Command Datalinks
         self.blue_network: dict[str, Contact] = {}
         self.red_network:  dict[str, Contact] = {}
         
-        # Legacy property to not crash ui.py, but now maps to network
         self.blue_contacts = self.blue_network 
         
         self.log(f"Scenario loaded — {len(units)} units ready.")
@@ -70,9 +68,10 @@ class SimulationEngine:
         self.game_time += sim_delta
 
         self._move_units(sim_delta)
+        self._process_unit_status(sim_delta) 
         self._process_unit_missions(sim_delta)
         self._unit_defensive_ai(sim_delta)
-        self._update_contacts() # Datalink update MUST happen before AI logic
+        self._update_contacts()
         self._red_ai(sim_delta)
         self._blue_ai(sim_delta)
         self._process_salvos(sim_delta)
@@ -80,6 +79,33 @@ class SimulationEngine:
         self._resolve_missile_outcomes()
         self._purge_dead()
         self._tick_flashes()
+
+    def _process_unit_status(self, sim_delta: float) -> None:
+        for u in self.units:
+            if not u.alive: continue
+            
+            was_on_fire = getattr(u, '_was_on_fire', False)
+            is_on_fire = getattr(u, 'fire_intensity', 0.0) > 0
+            if is_on_fire and not was_on_fire:
+                self.log(f"{u.callsign}: ON FIRE!")
+            elif was_on_fire and not is_on_fire:
+                self.log(f"{u.callsign}: Fire extinguished.")
+            u._was_on_fire = is_on_fire
+            
+            is_ground = u.platform.unit_type in _GROUND_TYPES
+            is_air = u.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
+            
+            if is_ground and u.systems["mobility"] == "DESTROYED" and u.waypoints:
+                u.clear_waypoints()
+                
+            if is_air and u.duty_state == "ACTIVE":
+                if u.damage_state in ("HEAVY", "MODERATE") or u.systems["mobility"] != "OK" or u.systems["weapons"] == "DESTROYED":
+                    if not u.mission or u.mission.mission_type != "RTB":
+                        base = self.get_unit_by_uid(u.home_uid)
+                        if base:
+                            u.mission = Mission("Emergency RTB", "RTB", base.lat, base.lon, 0, u.altitude_ft, 0)
+                            u.clear_waypoints()
+                            self.log(f"{u.callsign}: Critical damage! Aborting mission, emergency RTB.")
 
     def _unit_defensive_ai(self, sim_delta: float) -> None:
         for u in self.units:
@@ -96,32 +122,37 @@ class SimulationEngine:
                     u.is_jamming = True
                     if u.side == "Blue": self.log(f"{u.callsign}: Jammer active!")
                 
+                penalty = getattr(u, 'inefficiency_penalty', 0.0)
+                
                 for threat in incoming:
                     dist = slant_range_km(u.lat, u.lon, u.altitude_ft, threat.lat, threat.lon, threat.altitude_ft)
                     if dist < 15.0:
                         if threat.wdef.seeker in ("ARH", "SARH") and u.chaff > 0:
-                            if random.random() < (0.25 * sim_delta): u.chaff -= 1
+                            if random.random() < (0.25 * sim_delta * (1.0 - penalty)): u.chaff -= 1
                         elif threat.wdef.seeker == "IR" and u.flare > 0:
-                            if random.random() < (0.35 * sim_delta): u.flare -= 1
+                            if random.random() < (0.35 * sim_delta * (1.0 - penalty)): u.flare -= 1
 
                 closest_threat = min(incoming, key=lambda m: slant_range_km(u.lat, u.lon, u.altitude_ft, m.lat, m.lon, m.altitude_ft))
-                closest_dist = slant_range_km(u.lat, u.lon, u.altitude_ft, closest_threat.lat, closest_threat.lon, closest_threat.altitude_ft)
+                
+                threat_brg = bearing(u.lat, u.lon, closest_threat.lat, closest_threat.lon)
+                opt1 = (threat_brg + 90) % 360
+                opt2 = (threat_brg - 90) % 360
+                
+                diff1 = abs((opt1 - u.heading + 360) % 360)
+                diff1 = diff1 if diff1 <= 180 else 360 - diff1
+                diff2 = abs((opt2 - u.heading + 360) % 360)
+                diff2 = diff2 if diff2 <= 180 else 360 - diff2
 
-                current_spd = u.platform.speed_kmh * u.performance_mult
-                if current_spd > _MIN_EVASION_SPEED_KMH:
-                    threat_brg = bearing(u.lat, u.lon, closest_threat.lat, closest_threat.lon)
-                    u.heading = (threat_brg + 90) % 360 
+                u.target_heading = opt1 if diff1 < diff2 else opt2
                 
                 if u.altitude_ft > 2000:
                     u.target_altitude_ft = max(1000, u.altitude_ft - 5000)
 
-                if u.waypoints and closest_dist < 8.0:
-                    u.clear_waypoints() 
-
             else:
-                if u.is_evading and (self.game_time - u.last_evasion_time) > 8.0:
+                if getattr(u, 'is_evading', False) and (self.game_time - u.last_evasion_time) > 8.0:
                     u.is_evading = False
                     if u.mission: u.target_altitude_ft = u.mission.altitude_ft
+                    u._recalc_heading()
 
     def queue_salvo(self, shooter: Unit, target: Unit, weapon_key: str, count: int, doctrine: str) -> None:
         wdef = self.db.weapons.get(weapon_key)
@@ -158,7 +189,25 @@ class SimulationEngine:
 
     def _move_units(self, sim_delta: float) -> None:
         for u in self.units:
-            u.update(sim_delta)
+            # FIX: Pass game_time so Unit can calculate ToT speed modulations
+            u.update(sim_delta, self.game_time)
+            
+            if getattr(u, 'leader_uid', "") and u.duty_state == "ACTIVE":
+                leader = self.get_unit_by_uid(u.leader_uid)
+                if leader and leader.alive and leader.duty_state == "ACTIVE":
+                    offset_dist = 0.5 * u.formation_slot
+                    offset_bearing = (leader.heading + 135) % 360 if u.formation_slot % 2 != 0 else (leader.heading - 135) % 360
+                    
+                    tlat = leader.lat + (math.cos(math.radians(offset_bearing)) * offset_dist) / 111.32
+                    tlon = leader.lon + (math.sin(math.radians(offset_bearing)) * offset_dist) / (111.32 * max(0.0001, math.cos(math.radians(leader.lat))))
+                    
+                    u.waypoints = [(tlat, tlon)]
+                    u.target_altitude_ft = leader.target_altitude_ft
+                    
+                    if getattr(leader, 'is_evading', False):
+                        u.is_evading = True
+                        u.target_heading = leader.target_heading
+
             if u.duty_state != "ACTIVE" and u.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
                 base = self.get_unit_by_uid(u.home_uid)
                 if base: u.lat, u.lon = base.lat, base.lon
@@ -166,6 +215,9 @@ class SimulationEngine:
     def _process_unit_missions(self, sim_delta: float) -> None:
         for u in self.units:
             if not u.alive or not u.mission or u.duty_state != "ACTIVE": continue
+            
+            if getattr(u, 'is_evading', False): continue
+            
             if u.mission.mission_type == "RTB":
                 base = self.get_unit_by_uid(u.home_uid)
                 if base:
@@ -176,7 +228,28 @@ class SimulationEngine:
                         u.duty_state = "REARMING"
                         u.duty_timer = u.platform.rearm_time_s
                         u.mission = None
-            elif not u.waypoints:
+                        
+            elif u.mission.mission_type == "CAP":
+                if not getattr(u, 'is_intercepting', False) and not getattr(u, 'leader_uid', ""):
+                    if not u.waypoints:
+                        ang1, ang2 = 0, 180
+                        length = 20.0
+                        lat1 = u.mission.target_lat + (math.cos(math.radians(ang1)) * length) / 111.32
+                        lon1 = u.mission.target_lon + (math.sin(math.radians(ang1)) * length) / (111.32 * max(0.0001, math.cos(math.radians(u.mission.target_lat))))
+                        lat2 = u.mission.target_lat + (math.cos(math.radians(ang2)) * length) / 111.32
+                        lon2 = u.mission.target_lon + (math.sin(math.radians(ang2)) * length) / (111.32 * max(0.0001, math.cos(math.radians(u.mission.target_lat))))
+                        
+                        u.waypoints = [(lat1, lon1), (lat2, lon2)]
+                        u._recalc_heading()
+                else:
+                    # Look for targets that we perceived as Hostile
+                    enemy_side = "Red" if u.side == "Blue" else "Blue"
+                    has_hostiles = any(c.perceived_side == enemy_side for c in u.merged_contacts.values() if c.unit_type in ("fighter", "attacker", "helicopter", "awacs"))
+                    if not has_hostiles:
+                        u.is_intercepting = False
+                        u.waypoints = list(getattr(u, 'saved_waypoints', []))
+
+            elif not u.waypoints and not getattr(u, 'leader_uid', ""):
                 angle = random.uniform(0, 360)
                 dist = random.uniform(0, u.mission.radius_km)
                 dlat = (math.cos(math.radians(angle)) * dist) / 111.32
@@ -189,16 +262,28 @@ class SimulationEngine:
     def _blue_ai(self, sim_delta: float) -> None:
         for blue in self.units:
             if blue.side == "Blue" and blue.alive and getattr(blue, 'auto_engage', False):
-                # AI targets based on its own dynamically merged sensor scope
-                targets = [self.get_unit_by_uid(uid) for uid in blue.merged_contacts.keys()]
-                valid_targets = [t for t in targets if t is not None and t.alive]
+                if getattr(blue, 'leader_uid', ""): continue 
+                
+                # IFF TARGETING: Only target perceived Hostiles (or Unknowns if ROE is FREE)
+                valid_targets = []
+                for uid, c in blue.merged_contacts.items():
+                    if c.perceived_side == "Red" or (blue.roe == "FREE" and c.perceived_side == "UNKNOWN"):
+                        t = self.get_unit_by_uid(uid)
+                        if t and t.alive: valid_targets.append(t)
+                        
                 self._auto_engage_shooter(blue, valid_targets, blue.merged_contacts)
 
     def _red_ai(self, sim_delta: float) -> None:
         for red in self.units:
             if red.side == "Red" and red.alive:
-                targets = [self.get_unit_by_uid(uid) for uid in red.merged_contacts.keys()]
-                valid_targets = [t for t in targets if t is not None and t.alive]
+                if getattr(red, 'leader_uid', ""): continue
+                
+                valid_targets = []
+                for uid, c in red.merged_contacts.items():
+                    if c.perceived_side == "Blue" or (red.roe == "FREE" and c.perceived_side == "UNKNOWN"):
+                        t = self.get_unit_by_uid(uid)
+                        if t and t.alive: valid_targets.append(t)
+                        
                 self._auto_engage_shooter(red, valid_targets, red.merged_contacts)
 
     def _auto_engage_shooter(self, shooter: Unit, targets: list[Unit], contacts: dict[str, Contact]) -> None:
@@ -232,8 +317,17 @@ class SimulationEngine:
             wkey = shooter.best_weapon_for(self.db, host)
             if wkey:
                 wdef = self.db.weapons[wkey]
-                dist = slant_range_km(shooter.lat, shooter.lon, shooter.altitude_ft, host.lat, host.lon, host.altitude_ft)
+                # Target range checks against the ESTIMATED position from the datalink
+                dist = slant_range_km(shooter.lat, shooter.lon, shooter.altitude_ft, contact.est_lat, contact.est_lon, contact.altitude_ft)
                 if dist < wdef.range_km * _AI_ENGAGE_FRAC:
+                    
+                    if shooter.mission and shooter.mission.mission_type == "CAP":
+                        if not getattr(shooter, 'is_intercepting', False):
+                            shooter.is_intercepting = True
+                            shooter.saved_waypoints = list(shooter.waypoints)
+                        shooter.clear_waypoints()
+                        shooter.add_waypoint(contact.est_lat, contact.est_lon)
+                        
                     self.queue_salvo(shooter, host, wkey, 1, "salvo")
                     break
 
@@ -250,17 +344,14 @@ class SimulationEngine:
                         self.log(f"Missile missed {m.target.callsign}.")
 
     def _update_contacts(self) -> None:
-        """The Datalink Architecture"""
         _RANK = {"NONE": 0, "FAINT": 1, "PROBABLE": 2, "CONFIRMED": 3}
         
         blue_active = [u for u in self.units if u.side == "Blue" and u.alive]
         red_active  = [u for u in self.units if u.side == "Red"  and u.alive]
         
-        # 1. Update individual local scopes
         for b in blue_active: update_local_contacts([b], red_active, b.local_contacts, self.game_time)
         for r in red_active:  update_local_contacts([r], blue_active, r.local_contacts, self.game_time)
 
-        # 2. Aggregate Master Networks (AWACS and Ground Stations upload tracks here)
         self.blue_network.clear()
         self.red_network.clear()
         
@@ -271,7 +362,6 @@ class SimulationEngine:
             c2_nodes = blue_c2 if u.side == "Blue" else red_c2
             master_net = self.blue_network if u.side == "Blue" else self.red_network
             
-            # Connection Check: Are we AWACS, or do we have LoS to an AWACS/Base?
             connected = False
             if u.platform.unit_type in ("awacs", "airbase"):
                 connected = True
@@ -283,28 +373,22 @@ class SimulationEngine:
             
             u.datalink_active = connected
             
-            # If connected, upload local tracks to the network
             if connected:
                 for uid, local_c in u.local_contacts.items():
                     net_c = master_net.get(uid)
-                    if net_c is None or _RANK[local_c.classification] > _RANK[net_c.classification]:
+                    # Merge preferencing the lowest positional error
+                    if net_c is None or local_c.pos_error_km < net_c.pos_error_km:
                         master_net[uid] = local_c
 
-        # 3. Download the Network back to connected units
         for u in self.units:
             master_net = self.blue_network if u.side == "Blue" else self.red_network
-            
-            # Every unit's "AI Brain" merged dictionary starts with what it can see locally
             u.merged_contacts = dict(u.local_contacts)
-            
-            # If datalink is up, append/overwrite with the master network
             if u.datalink_active:
                 for uid, net_c in master_net.items():
                     local_c = u.merged_contacts.get(uid)
-                    if local_c is None or _RANK[net_c.classification] > _RANK[local_c.classification]:
+                    if local_c is None or net_c.pos_error_km < local_c.pos_error_km:
                         u.merged_contacts[uid] = net_c
 
-        # 4. Global UI hack (Ensures the player sees what the Blue network sees)
         for r in red_active:
             r.is_detected = (r.uid in self.blue_network)
 

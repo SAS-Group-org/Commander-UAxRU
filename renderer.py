@@ -42,12 +42,15 @@ class Renderer:
                    mouse_pos: tuple[int, int] | None = None,
                    show_all_enemies: bool = False,
                    show_air_labels: bool = True,
-                   show_ground_labels: bool = True) -> None:
+                   show_ground_labels: bool = True,
+                   show_radar_rings: bool = True) -> None:
         contacts = blue_contacts or {}
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
         
-        self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
+        if show_radar_rings:
+            self._draw_radar_rings(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
+            
         self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         
         self._draw_missiles(cam_px, cam_py, zoom, missiles, win_w, map_h)
@@ -158,7 +161,6 @@ class Renderer:
                 elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
                 else: self._draw_jet_polygon(sx, sy, unit.heading, color)
 
-            # Filter Labels by Category Selection
             is_air = utype in ("fighter", "attacker", "helicopter", "awacs")
             show_label = (is_air and show_air_labels) or (not is_air and show_ground_labels)
 
@@ -254,15 +256,26 @@ class Renderer:
         uid_to_unit = {u.uid: u for u in units if u.side == "Red"}
 
         for uid, contact in contacts.items():
-            sx, sy = world_to_screen(contact.lat, contact.lon, cam_px, cam_py, zoom, win_w, map_h)
+            sx, sy = world_to_screen(contact.est_lat, contact.est_lon, cam_px, cam_py, zoom, win_w, map_h)
             if not (-80 < sx < win_w + 80 and -80 < sy < map_h + 80): continue
+
+            if contact.pos_error_km > 0.5:
+                lat2 = contact.est_lat + (contact.pos_error_km / 111.32)
+                _, py1 = lat_lon_to_pixel(contact.est_lat, contact.est_lon, zoom)
+                _, py2 = lat_lon_to_pixel(lat2, contact.est_lon, zoom)
+                radius = int(abs(py1 - py2))
+                if radius > 4:
+                    pygame.draw.circle(self.surface, (100, 100, 100), (int(sx), int(sy)), radius, 1)
 
             cls = contact.classification
             utype = contact.unit_type or "unknown"
             
-            # Treat unknown as a ground contact for label hiding purposes
             is_air = utype in ("fighter", "attacker", "helicopter", "awacs")
             show_label = (is_air and show_air_labels) or (not is_air and show_ground_labels)
+            
+            track_color = CONTACT_CONFIRM_COLOR
+            if contact.perceived_side == "UNKNOWN": track_color = (200, 200, 200) 
+            elif contact.perceived_side == "Blue": track_color = BLUE_UNIT_COLOR
 
             if cls == "FAINT":
                 pygame.draw.circle(self.surface, CONTACT_FAINT_COLOR, (int(sx), int(sy)), 5, 1)
@@ -271,24 +284,22 @@ class Renderer:
                     self.surface.blit(lbl, (int(sx) + 7, int(sy) - 6))
 
             elif cls == "PROBABLE":
-                color = CONTACT_PROBABLE_COLOR
                 if is_air:
                     pts = [(sx, sy - 9), (sx + 8, sy + 5), (sx - 8, sy + 5)]
-                    pygame.draw.polygon(self.surface, color, pts, 2)
+                    pygame.draw.polygon(self.surface, track_color, pts, 2)
                 else:
                     pts = [(sx, sy - 9), (sx + 9, sy), (sx, sy + 9), (sx - 9, sy)]
-                    pygame.draw.polygon(self.surface, color, pts, 2)
+                    pygame.draw.polygon(self.surface, track_color, pts, 2)
                     
                 if show_label:
-                    lbl = self._font_sm.render(f"? {utype}", True, color)
+                    lbl = self._font_sm.render(f"? {utype}", True, track_color)
                     self.surface.blit(lbl, (int(sx) + 12, int(sy) - 6))
 
             else:  
                 unit = uid_to_unit.get(uid)
                 if unit is None: continue  
-                color = CONTACT_CONFIRM_COLOR
 
-                if unit.flash_frames > 0: color = (255, 255, 255)
+                if unit.flash_frames > 0: track_color = (255, 255, 255)
 
                 surf = self._get_unit_surface(unit)
                 if surf:
@@ -296,15 +307,15 @@ class Renderer:
                     rect    = rotated.get_rect(center=(int(sx), int(sy)))
                     self.surface.blit(rotated, rect.topleft)
                 else:
-                    if utype == "tank": self._draw_tank_symbol(sx, sy, unit.heading, color)
-                    elif utype == "ifv": self._draw_ifv_symbol(sx, sy, color)
-                    elif utype == "apc": self._draw_apc_symbol(sx, sy, color)
-                    elif utype == "recon": self._draw_recon_symbol(sx, sy, color)
-                    elif utype == "tank_destroyer": self._draw_td_symbol(sx, sy, unit.heading, color)
-                    elif utype == "sam": self._draw_sam_symbol(sx, sy, color)
-                    elif utype == "airbase": self._draw_airbase_symbol(sx, sy, color)
-                    elif utype == "artillery": self._draw_artillery_symbol(sx, sy, color)
-                    else: self._draw_jet_polygon(sx, sy, unit.heading, color)
+                    if utype == "tank": self._draw_tank_symbol(sx, sy, unit.heading, track_color)
+                    elif utype == "ifv": self._draw_ifv_symbol(sx, sy, track_color)
+                    elif utype == "apc": self._draw_apc_symbol(sx, sy, track_color)
+                    elif utype == "recon": self._draw_recon_symbol(sx, sy, track_color)
+                    elif utype == "tank_destroyer": self._draw_td_symbol(sx, sy, unit.heading, track_color)
+                    elif utype == "sam": self._draw_sam_symbol(sx, sy, track_color)
+                    elif utype == "airbase": self._draw_airbase_symbol(sx, sy, track_color)
+                    elif utype == "artillery": self._draw_artillery_symbol(sx, sy, track_color)
+                    else: self._draw_jet_polygon(sx, sy, unit.heading, track_color)
 
                 if show_label:
                     callsign_lbl = self._font_sm.render(unit.callsign, True, (0, 0, 0))

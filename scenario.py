@@ -55,7 +55,8 @@ class PlatformDef:
     player_side:       str              
     rcs_m2:            float            
     cruise_alt_ft:     float            
-    rearm_time_s:      float            
+    rearm_time_s:      float
+    max_g:             float            
 
 @dataclass
 class Mission:
@@ -66,6 +67,8 @@ class Mission:
     radius_km: float
     altitude_ft: float
     rtb_fuel_pct: float
+    time_on_target: float = 0.0
+    package_id: str = ""
 
 class Missile:
     def __init__(self, shooter: "Unit", target: "Unit", weapon_def: WeaponDef):
@@ -150,8 +153,27 @@ class Missile:
             if actual_dist_to_target > 0.15: return 0.0
         
         range_fraction = self.launch_dist / max(1.0, self.wdef.range_km)
-        pk = self.wdef.base_pk - (range_fraction * 0.15)
         
+        penalty = getattr(self.shooter, 'inefficiency_penalty', 0.0)
+        structural_mult = getattr(self.shooter, 'performance_mult', 1.0)
+        if getattr(self.shooter, 'systems', {}).get('weapons') == 'DEGRADED':
+            penalty += 0.25
+            
+        pk = (self.wdef.base_pk * (1.0 - penalty) * structural_mult) - (range_fraction * 0.15)
+        
+        # DATALINK POSITIONAL ERROR PENALTY: Pk tanks if the track is stale or fuzzy
+        track = getattr(self.shooter, 'merged_contacts', {}).get(self.target.uid)
+        if track:
+            pk -= (track.pos_error_km * 0.05) # -5% hit chance per 1km of positional uncertainty
+        
+        if self.target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+            g_load = getattr(self.target, 'current_g_load', 1.0)
+            spd = getattr(self.target, 'current_speed_kmh', 300.0)
+            if g_load > 3.0:
+                em_penalty = (g_load - 3.0) * 0.05
+                if spd > 1000: em_penalty *= 1.5 
+                pk -= em_penalty
+
         if self.wdef.seeker == "ARM" and not getattr(self.target, 'radar_active', True): pk -= 0.60 
 
         if self.target.is_jamming and self.target.platform.ecm_rating > 0 and self.launch_dist > BURNTHROUGH_RANGE_KM:
@@ -161,21 +183,33 @@ class Missile:
             brg_to_msl = bearing(self.target.lat, self.target.lon, self.lat, self.lon)
             aspect = abs(self.target.heading - brg_to_msl) % 360
             if (75 < aspect < 105) or (255 < aspect < 285):
-                notch_penalty = 0.25
-                if self.target.altitude_ft < 5000: notch_penalty += 0.35 
+                notch_penalty = 0.10 
+                if self.target.altitude_ft < 5000: notch_penalty += 0.15 
                 pk -= notch_penalty
 
         if self.wdef.seeker in ("ARH", "SARH") and self.target.chaff > 0:
-            self.target.chaff -= 1; pk -= CHAFF_PK_PENALTY
+            self.target.chaff -= 1
+            if random.random() < 0.50: pk -= 0.20
         elif self.wdef.seeker == "IR" and self.target.flare > 0:
-            self.target.flare -= 1; pk -= FLARE_PK_PENALTY
+            self.target.flare -= 1
+            if random.random() < 0.50: pk -= 0.20
 
         return 1.0 if self.wdef.inevadable else max(MIN_PK, min(MAX_PK, pk))
 
     def estimated_pk(self) -> float:
         dist = slant_range_km(self.lat, self.lon, self.altitude_ft, self.target.lat, self.target.lon, self.target.altitude_ft)
         range_fraction = dist / max(1.0, self.wdef.range_km)
-        pk = self.wdef.base_pk - (range_fraction * 0.15)
+        
+        penalty = getattr(self.shooter, 'inefficiency_penalty', 0.0)
+        structural_mult = getattr(self.shooter, 'performance_mult', 1.0)
+        if getattr(self.shooter, 'systems', {}).get('weapons') == 'DEGRADED':
+            penalty += 0.25
+            
+        pk = (self.wdef.base_pk * (1.0 - penalty) * structural_mult) - (range_fraction * 0.15)
+        
+        track = getattr(self.shooter, 'merged_contacts', {}).get(self.target.uid)
+        if track: pk -= (track.pos_error_km * 0.05)
+        
         if self.wdef.seeker == "ARM" and not getattr(self.target, 'radar_active', True): pk -= 0.60
         if self.target.is_jamming and self.target.platform.ecm_rating > 0 and self.launch_dist > BURNTHROUGH_RANGE_KM:
             if self.wdef.seeker in ("ARH", "SARH"): pk -= max(0.0, self.target.platform.ecm_rating - self.wdef.eccm)
@@ -183,11 +217,11 @@ class Missile:
             brg_to_msl = bearing(self.target.lat, self.target.lon, self.shooter.lat, self.shooter.lon)
             aspect = abs(self.target.heading - brg_to_msl) % 360
             if (75 < aspect < 105) or (255 < aspect < 285):
-                pk -= 0.25 + (0.35 if self.target.altitude_ft < 5000 else 0.0)
+                pk -= 0.10 + (0.15 if self.target.altitude_ft < 5000 else 0.0)
         return max(MIN_PK, min(MAX_PK, pk))
 
 class Unit:
-    def __init__(self, uid: str, callsign: str, lat: float, lon: float, side: str, platform: PlatformDef, loadout: dict[str, int], image_path: Optional[str] = None):
+    def __init__(self, uid: str, callsign: str, lat: float, lon: float, side: str, platform: PlatformDef, loadout: dict[str, int], image_path: Optional[str] = None, drunkness: int = 1, corruption: int = 1):
         self.uid        = uid
         self.callsign   = callsign
         self.lat        = lat
@@ -201,6 +235,11 @@ class Unit:
 
         self.hp: float = 1.0
         self.damage_state: str = "OK"
+        self.systems = {"radar": "OK", "mobility": "OK", "weapons": "OK"}
+        self.fire_intensity: float = 0.0 
+        
+        self.drunkness  = drunkness
+        self.corruption = corruption
 
         self.waypoints: list[tuple[float, float]] = []
         self.heading    = 0.0
@@ -219,6 +258,7 @@ class Unit:
 
         self.is_jamming: bool = False
         self.radar_active: bool = True
+        self.iff_active: bool = True # IFF TRANSPONDER
         self.chaff: int = platform.chaff_capacity
         self.flare: int = platform.flare_capacity
 
@@ -232,35 +272,80 @@ class Unit:
         self.home_lat: float = lat
         self.home_lon: float = lon
         
-        # DATALINK CAPABILITIES
         self.datalink_active: bool = True
         self.local_contacts: dict[str, Contact] = {}
         self.merged_contacts: dict[str, Contact] = {}
+
+        self.current_speed_kmh: float = platform.speed_kmh
+        self.target_heading: float = 0.0
+        self.current_g_load: float = 1.0
+        
+        self.leader_uid: str = ""
+        self.formation_slot: int = 0 
+        self.is_intercepting: bool = False
+        self.saved_waypoints: list[tuple[float, float]] = []
 
     @property
     def alive(self) -> bool: return self.hp > 0.0
 
     @property
     def performance_mult(self) -> float:
-        if self.damage_state == "OK": return 1.0
-        if self.damage_state == "LIGHT": return 0.8
-        if self.damage_state == "MODERATE": return 0.6
-        if self.damage_state == "HEAVY": return 0.4
-        return 0.0
+        if not self.alive: return 0.0
+        mult = 1.0
+        if self.damage_state == "LIGHT": mult = 0.8
+        elif self.damage_state == "MODERATE": mult = 0.6
+        elif self.damage_state == "HEAVY": mult = 0.4
+        
+        if self.systems["mobility"] == "DEGRADED":
+            mult *= 0.6
+        elif self.systems["mobility"] == "DESTROYED":
+            is_air = self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
+            if is_air: mult *= 0.3
+            else: mult = 0.0
+            
+        return mult
 
-    def take_damage(self, amount: float) -> None:
+    @property
+    def drunkness_label(self) -> str: return {1: "Sober", 2: "Tipsy", 3: "Intoxicated", 4: "Wasted", 5: "Yeltsin"}.get(self.drunkness, "Sober")
+
+    @property
+    def corruption_label(self) -> str: return {1: "Clean", 2: "Grass Eater", 3: "Dirty", 4: "Meat Eater", 5: "Shoigu"}.get(self.corruption, "Clean")
+        
+    @property
+    def inefficiency_penalty(self) -> float: return ((self.drunkness - 1) + (self.corruption - 1)) * 0.08
+
+    def take_damage(self, amount: float, is_dot: bool = False) -> None:
         if not self.alive: return
         self.hp = max(0.0, self.hp - amount)
+        
+        if self.hp > 0 and amount > 0 and not is_dot:
+            sys_hit_chance = (amount / 0.25) * 0.50
+            if random.random() < sys_hit_chance:
+                sys_key = random.choice(list(self.systems.keys()))
+                if self.systems[sys_key] == "OK": self.systems[sys_key] = "DEGRADED"
+                elif self.systems[sys_key] == "DEGRADED": self.systems[sys_key] = "DESTROYED"
+            
+            if random.random() < amount * 1.5:  
+                self.fire_intensity = min(1.0, self.fire_intensity + 0.35)
+        
         if self.hp <= 0.0:
             self.damage_state = "KILLED"
             self.is_jamming = False 
             self.radar_active = False
+            self.iff_active = False
+            self.fire_intensity = 0.0
+            self.systems = {"radar": "DESTROYED", "mobility": "DESTROYED", "weapons": "DESTROYED"}
         elif self.hp <= 0.25: self.damage_state = "HEAVY"
         elif self.hp <= 0.50: self.damage_state = "MODERATE"
         elif self.hp <= 0.75: self.damage_state = "LIGHT"
         else: self.damage_state = "OK"
+        
+        if self.systems["radar"] == "DESTROYED":
+            self.radar_active = False
 
     def add_waypoint(self, lat: float, lon: float) -> None:
+        if self.platform.unit_type not in ("fighter", "attacker", "helicopter", "awacs") and self.systems["mobility"] == "DESTROYED":
+            return
         self.waypoints.append((lat, lon))
         self._recalc_heading()
 
@@ -268,10 +353,21 @@ class Unit:
         self.waypoints.clear()
 
     def _recalc_heading(self) -> None:
-        if self.waypoints: self.heading = bearing(self.lat, self.lon, *self.waypoints[0])
+        if self.waypoints:
+            if self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+                self.target_heading = bearing(self.lat, self.lon, *self.waypoints[0])
+            else:
+                self.heading = bearing(self.lat, self.lon, *self.waypoints[0])
 
-    def update(self, sim_delta: float) -> None:
+    def update(self, sim_delta: float, game_time: float = 0.0) -> None:
         if not self.alive: return
+        
+        if self.fire_intensity > 0:
+            burn_dmg = (self.fire_intensity * 0.015) * sim_delta
+            self.take_damage(burn_dmg, is_dot=True)
+            dc_effectiveness = 0.025 * self.performance_mult * (1.0 - self.inefficiency_penalty)
+            self.fire_intensity -= dc_effectiveness * sim_delta
+            if self.fire_intensity <= 0: self.fire_intensity = 0.0
         
         if self.duty_state == "REARMING":
             self.duty_timer -= sim_delta
@@ -291,7 +387,65 @@ class Unit:
             if abs(alt_diff) <= step: self.altitude_ft = self.target_altitude_ft
             else: self.altitude_ft += math.copysign(step, alt_diff)
 
-        if self.waypoints:
+        # TIME ON TARGET (ToT) SPEED MODULATION
+        target_spd = self.platform.speed_kmh * self.performance_mult
+        if self.mission and self.mission.time_on_target > game_time and self.waypoints and not self.is_evading:
+            dist_to_tgt = 0.0
+            curr_pos = (self.lat, self.lon)
+            for wp in self.waypoints:
+                dist_to_tgt += haversine(curr_pos[0], curr_pos[1], wp[0], wp[1])
+                curr_pos = wp
+            
+            time_rem = self.mission.time_on_target - game_time
+            if time_rem > 0:
+                req_speed_kmh = (dist_to_tgt / (time_rem / 3600.0))
+                target_spd = min(target_spd, req_speed_kmh)
+                target_spd = max(350.0, target_spd) # Cannot fly below stall speed
+
+        if self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+            spd_mps = max(10.0, self.current_speed_kmh / 3.6)
+            max_turn_rate = (self.platform.max_g * 9.81) / spd_mps * (180 / math.pi)
+            max_turn_deg = max_turn_rate * sim_delta * self.performance_mult
+
+            diff = (self.target_heading - self.heading + 360) % 360
+            if diff > 180: diff -= 360
+
+            if abs(diff) <= max_turn_deg:
+                self.heading = self.target_heading
+                self.current_g_load = 1.0
+            else:
+                self.heading = (self.heading + math.copysign(max_turn_deg, diff)) % 360
+                self.current_g_load = self.platform.max_g * self.performance_mult
+
+            if self.current_g_load > 2.0:
+                speed_loss_rate = self.current_g_load * 12.0
+                self.current_speed_kmh = max(250.0, self.current_speed_kmh - speed_loss_rate * sim_delta)
+            else:
+                accel_rate = 60.0
+                if self.current_speed_kmh < target_spd:
+                    self.current_speed_kmh = min(target_spd, self.current_speed_kmh + accel_rate * sim_delta)
+                elif self.current_speed_kmh > target_spd:
+                    self.current_speed_kmh = max(target_spd, self.current_speed_kmh - accel_rate * sim_delta)
+
+            move_dist = (self.current_speed_kmh / 3600.0) * sim_delta
+            rad = math.radians(self.heading)
+            dlat = (math.cos(rad) * move_dist) / 111.32
+            cos_lat = math.cos(math.radians(self.lat))
+            dlon = (math.sin(rad) * move_dist) / (111.32 * max(0.0001, cos_lat))
+
+            self.lat += dlat
+            self.lon += dlon
+
+            if self.waypoints and not self.is_evading:
+                tlat, tlon = self.waypoints[0]
+                dist_to_wp = haversine(self.lat, self.lon, tlat, tlon)
+                self.target_heading = bearing(self.lat, self.lon, tlat, tlon)
+                if dist_to_wp < 1.0: 
+                    self.waypoints.pop(0)
+                    if self.waypoints:
+                        self.target_heading = bearing(self.lat, self.lon, *self.waypoints[0])
+                        
+        elif self.waypoints:
             speed_kms    = (self.platform.speed_kmh * self.performance_mult) / 3600.0
             dist_budget  = speed_kms * sim_delta
             while dist_budget > 0 and self.waypoints:
@@ -301,6 +455,7 @@ class Unit:
                 lat_km       = dlat * 111.32
                 lon_km       = dlon * 111.32 * math.cos(math.radians(self.lat))
                 dist_to_wp   = math.hypot(lat_km, lon_km)
+                
                 if dist_to_wp <= dist_budget:
                     self.lat, self.lon = tlat, tlon
                     dist_budget -= dist_to_wp
@@ -314,7 +469,7 @@ class Unit:
                     self._recalc_heading()
 
         if self.fuel_kg > 0 and self.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
-            burn_per_sec = self.platform.fuel_burn_rate_kg_h / 3600.0
+            burn_per_sec = (self.platform.fuel_burn_rate_kg_h / 3600.0) * (1.0 + self.inefficiency_penalty)
             self.fuel_kg -= burn_per_sec * sim_delta
             if self.fuel_kg <= 0:
                 self.fuel_kg = 0
@@ -361,6 +516,8 @@ class Unit:
         return new_role
 
     def best_weapon_for(self, db: "Database", target: "Unit") -> Optional[str]:
+        if self.systems["weapons"] == "DESTROYED": return None
+        
         target_is_air = target.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs")
         best_key, best_score = None, -1.0
         is_sead = self.mission and self.mission.mission_type == "SEAD"
@@ -420,9 +577,16 @@ class Database:
 
         for key, d in raw_platforms.items():
             r_rng = d["radar"]["range_km"]
-            # Auto-infer ESM and IR ranges if not specified in JSON
             esm_val = float(d.get("esm_range_km", r_rng * 1.5 if r_rng > 0 else (10.0 if d["type"] != "tank" else 0.0)))
             ir_val  = float(d.get("ir_range_km", 40.0 if d["type"] in ("fighter", "attacker", "awacs") else 8.0))
+            
+            mg = d.get("max_g")
+            if not mg:
+                if d["type"] == "fighter": mg = 9.0
+                elif d["type"] == "attacker": mg = 5.0
+                elif d["type"] == "helicopter": mg = 3.5
+                elif d["type"] == "awacs": mg = 2.5
+                else: mg = 1.0
             
             self.platforms[key] = PlatformDef(
                 key=key, display_name=d["display_name"], unit_type=d["type"], speed_kmh=d["speed_kmh"],
@@ -435,8 +599,10 @@ class Database:
                 default_loadout=d["default_loadout"], available_weapons=tuple(d.get("available_weapons", list(d["default_loadout"].keys()))),
                 fleet_count=d.get("fleet_count", 0), player_side=d.get("player_side", "Any"),
                 rcs_m2=float(d.get("rcs_m2", 5.0)), cruise_alt_ft=float(d.get("cruise_alt_ft", 0)), rearm_time_s=float(d.get("rearm_time_s", 120.0)),
+                max_g=float(mg)
             )
 
+# Load/Save handlers dynamically infer the new properties with safe fallback defaults
 def load_scenario(path: str, db: Database) -> tuple[list[Unit], dict]:
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
@@ -459,10 +625,15 @@ def load_scenario(path: str, db: Database) -> tuple[list[Unit], dict]:
             platform   = platform,
             loadout    = loadout,
             image_path = ud.get("image_path"),
+            drunkness  = ud.get("drunkness", 1),
+            corruption = ud.get("corruption", 1)
         )
         
+        unit.systems = ud.get("systems", {"radar": "OK", "mobility": "OK", "weapons": "OK"})
+        unit.fire_intensity = ud.get("fire_intensity", 0.0)
         unit.roe = ud.get("roe", "FREE" if unit.side == "Red" else "TIGHT")
         unit.radar_active = ud.get("radar_active", True)
+        unit.iff_active = ud.get("iff_active", True)
         unit.home_uid = ud.get("home_uid", "")
         unit.duty_state = ud.get("duty_state", "ACTIVE")
         unit.duty_timer = ud.get("duty_timer", 0.0)
@@ -476,7 +647,9 @@ def load_scenario(path: str, db: Database) -> tuple[list[Unit], dict]:
                 target_lon=mdata["lon"],
                 radius_km=mdata["radius"],
                 altitude_ft=mdata["alt"],
-                rtb_fuel_pct=mdata["rtb_fuel"]
+                rtb_fuel_pct=mdata["rtb_fuel"],
+                time_on_target=mdata.get("time_on_target", 0.0),
+                package_id=mdata.get("package_id", "")
             )
             
         for wp in ud.get("waypoints", []):
@@ -505,9 +678,14 @@ def save_scenario(path: str, units: list[Unit], meta: dict,
             "lat":        round(u.lat, 6),
             "lon":        round(u.lon, 6),
             "image_path": u.image_path,
+            "drunkness":  u.drunkness,
+            "corruption": u.corruption,
+            "systems":    u.systems,
+            "fire_intensity": u.fire_intensity,
             "loadout":    u.loadout,
             "roe":        u.roe,
             "radar_active": u.radar_active,
+            "iff_active":   u.iff_active,
             "home_uid":   u.home_uid,
             "duty_state": u.duty_state,
             "duty_timer": round(u.duty_timer, 1),
@@ -522,7 +700,9 @@ def save_scenario(path: str, units: list[Unit], meta: dict,
                 "lon": round(u.mission.target_lon, 6),
                 "radius": round(u.mission.radius_km, 2),
                 "alt": round(u.mission.altitude_ft, 2),
-                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2)
+                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2),
+                "time_on_target": round(u.mission.time_on_target, 1),
+                "package_id": u.mission.package_id
             }
         units_data.append(entry)
 
@@ -547,9 +727,14 @@ def save_deployment(path: str, units: list[Unit]) -> None:
             "lat":        round(u.lat, 6),
             "lon":        round(u.lon, 6),
             "image_path": u.image_path,
+            "drunkness":  u.drunkness,
+            "corruption": u.corruption,
+            "systems":    u.systems,
+            "fire_intensity": u.fire_intensity,
             "loadout":    u.loadout,
             "roe":        u.roe,
             "radar_active": u.radar_active,
+            "iff_active":   u.iff_active,
             "home_uid":   u.home_uid,
             "duty_state": u.duty_state,
             "duty_timer": round(u.duty_timer, 1),
@@ -564,7 +749,9 @@ def save_deployment(path: str, units: list[Unit]) -> None:
                 "lon": round(u.mission.target_lon, 6),
                 "radius": round(u.mission.radius_km, 2),
                 "alt": round(u.mission.altitude_ft, 2),
-                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2)
+                "rtb_fuel": round(u.mission.rtb_fuel_pct, 2),
+                "time_on_target": round(u.mission.time_on_target, 1),
+                "package_id": u.mission.package_id
             }
         units_data.append(entry)
         
@@ -594,10 +781,15 @@ def load_deployment(path: str, db: Database) -> list[Unit]:
             platform   = platform,
             loadout    = loadout,
             image_path = ud.get("image_path"),
+            drunkness  = ud.get("drunkness", 1),
+            corruption = ud.get("corruption", 1)
         )
         
+        unit.systems = ud.get("systems", {"radar": "OK", "mobility": "OK", "weapons": "OK"})
+        unit.fire_intensity = ud.get("fire_intensity", 0.0)
         unit.roe = ud.get("roe", "TIGHT")
         unit.radar_active = ud.get("radar_active", True)
+        unit.iff_active = ud.get("iff_active", True)
         unit.home_uid = ud.get("home_uid", "")
         unit.duty_state = ud.get("duty_state", "ACTIVE")
         unit.duty_timer = ud.get("duty_timer", 0.0)
@@ -611,7 +803,9 @@ def load_deployment(path: str, db: Database) -> list[Unit]:
                 target_lon=mdata["lon"],
                 radius_km=mdata["radius"],
                 altitude_ft=mdata["alt"],
-                rtb_fuel_pct=mdata["rtb_fuel"]
+                rtb_fuel_pct=mdata["rtb_fuel"],
+                time_on_target=mdata.get("time_on_target", 0.0),
+                package_id=mdata.get("package_id", "")
             )
             
         for wp in ud.get("waypoints", []):

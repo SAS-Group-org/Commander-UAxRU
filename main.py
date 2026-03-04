@@ -110,8 +110,8 @@ _CLUSTERS = [
     {"name": "HORLIVKA",          "lat": 48.33, "lon": 38.06, "spread": 0.10, "mix": {"tank":3,"ifv":4,"apc":2,"recon":2,"tank_destroyer":1, "sam":1}},
     {"name": "VOLNOVAKHA",        "lat": 47.60, "lon": 37.50, "spread": 0.10, "mix": {"tank":2,"ifv":3,"apc":3,"recon":1,"tank_destroyer":1, "sam":1}},
     {"name": "TOKMAK",            "lat": 47.25, "lon": 35.71, "spread": 0.10, "mix": {"tank":2,"ifv":2,"apc":3,"recon":2,"tank_destroyer":1, "sam":2}},
-    {"name": "MILLEROVO AIR",     "lat": 48.93, "lon": 40.39, "spread": 0.05, "mix": {"airbase":1, "fighter":2,"attacker":1, "sam":2}},
-    {"name": "MOROZOVSK AIR",     "lat": 48.35, "lon": 41.83, "spread": 0.05, "mix": {"airbase":1, "fighter":2, "sam":2, "awacs":1}},
+    {"name": "MILLEROVO AIR",     "lat": 48.93, "lon": 40.39, "spread": 0.05, "mix": {"airbase":1, "fighter":4,"attacker":2, "sam":2}},
+    {"name": "MOROZOVSK AIR",     "lat": 48.35, "lon": 41.83, "spread": 0.05, "mix": {"airbase":1, "fighter":4, "sam":2, "awacs":1}},
     {"name": "CRIMEA CENTRAL",    "lat": 45.28, "lon": 34.03, "spread": 0.15, "mix": {"tank":4,"ifv":5,"apc":4,"recon":2,"sam":3}},
     {"name": "SEVASTOPOL NAVAL",  "lat": 44.61, "lon": 33.52, "spread": 0.05, "mix": {"sam":2, "airbase":1, "fighter":2}},
     {"name": "DZHANKOI AIR",      "lat": 45.70, "lon": 34.42, "spread": 0.08, "mix": {"airbase":1, "helicopter":4, "sam":2, "tank": 2}},
@@ -171,6 +171,8 @@ def _generate_scenario(db: "Database") -> dict:
             if not pool: continue
 
             actual = max(1, count + rng.randint(-1, 1)) if utype != "airbase" else count
+            flight_leader_uid = ""
+            
             for _ in range(actual):
                 uid += 1
                 platform_key = rng.choice(pool)
@@ -196,11 +198,19 @@ def _generate_scenario(db: "Database") -> dict:
                     "lat":        round(lat, 5),
                     "lon":        round(lon, 5),
                     "image_path": "assets/red_jet.png",
+                    "drunkness":  rng.choices([1, 2, 3, 4, 5], weights=[20, 30, 25, 15, 10])[0],
+                    "corruption": rng.choices([1, 2, 3, 4, 5], weights=[10, 30, 30, 20, 10])[0],
                     "loadout":    dict(plat.default_loadout),
                     "waypoints":  [],
                 }
 
                 if utype in ("fighter", "attacker", "helicopter", "awacs"):
+                    if _ == 0:
+                        flight_leader_uid = entry["id"]
+                    else:
+                        entry["leader_uid"] = flight_leader_uid
+                        entry["formation_slot"] = _
+
                     entry["mission"] = {
                         "name": f"Patrol {callsign}",
                         "type": "CAP" if utype in ("fighter", "awacs") else "STRIKE",
@@ -240,7 +250,7 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
     blue_clusters = [
         {"name": "STAROKOSTIANTYNIV", "lat": 49.74, "lon": 27.27, "mix": {"AirbaseB": 1, "Patriot": 1, "F-16A": 4, "Su-24M": 2}},
         {"name": "LVIV", "lat": 49.83, "lon": 24.02, "mix": {"AirbaseB": 1, "IRIS-T_SLM": 1, "MiG-29UA": 4}},
-        {"name": "KYIV", "lat": 50.45, "lon": 30.52, "mix": {"AirbaseB": 1, "Patriot": 2, "NASAMS": 2, "F-16C": 2, "M142_HIMARS": 2, "E-3G_Sentry": 1}},
+        {"name": "KYIV", "lat": 50.45, "lon": 30.52, "mix": {"AirbaseB": 1, "Patriot": 2, "NASAMS": 2, "F-16C": 4, "M142_HIMARS": 2, "E-3G_Sentry": 1}},
         {"name": "ODESA", "lat": 46.48, "lon": 30.72, "mix": {"AirbaseB": 1, "Patriot": 1, "MiG-29UA": 2, "Gepard": 2, "M777": 4}},
         {"name": "ZHYTOMYR", "lat": 50.25, "lon": 28.65, "mix": {"AirbaseB": 1, "Su-27UA": 2, "Mi-24V": 2, "IRIS-T_SLM": 1, "M270_MLRS": 1}},
         {"name": "DNIPRO", "lat": 48.46, "lon": 35.04, "mix": {"Leopard2": 2, "Bradley": 4, "Gepard": 2, "PzH2000": 3}},
@@ -269,6 +279,7 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
             plat = db.platforms.get(utype)
             if not plat: continue
             
+            flight_leader_uid = ""
             for _ in range(count):
                 lat = clat + rng.gauss(0, 0.05)
                 lon = clon + rng.gauss(0, 0.05)
@@ -284,6 +295,13 @@ def _auto_deploy_blue(db: Database, sim: SimulationEngine, placement_counts: dic
                 
                 unit = _make_blue_unit(utype, lat, lon, db, callsign)
                 if unit:
+                    if plat.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+                        if _ == 0:
+                            flight_leader_uid = unit.uid
+                        else:
+                            unit.leader_uid = flight_leader_uid
+                            unit.formation_slot = _
+                            
                     if plat.unit_type in ("fighter", "attacker", "helicopter", "awacs") and base_uid:
                         unit.home_uid = base_uid
                         unit.duty_state = "READY"
@@ -319,6 +337,8 @@ def _make_blue_unit(platform_key: str, lat: float, lon: float, db: Database, cal
         platform   = plat,
         loadout    = dict(plat.default_loadout),
         image_path = "assets/blue_jet.png",
+        drunkness  = 1, 
+        corruption = 1
     )
 
 def _callsign_for(platform_key: str, index: int) -> str:
@@ -403,9 +423,9 @@ def main() -> None:
     show_all_enemies:  bool            = False
     game_over_triggered: bool          = False
     
-    # State tracking for UI text labels
     show_air_labels:   bool            = True
     show_ground_labels:bool            = True
+    show_radar_rings:  bool            = True
 
     running = True
     while running:
@@ -443,6 +463,8 @@ def main() -> None:
                 show_air_labels = not show_air_labels
             elif action.get("type") == "toggle_ground_labels":
                 show_ground_labels = not show_ground_labels
+            elif action.get("type") == "toggle_radar_rings":
+                show_radar_rings = not show_radar_rings
             elif action.get("type") == "place_unit":
                 placing_type      = action["platform_key"]
                 placing_remaining = action.get("quantity", 1)
@@ -502,6 +524,8 @@ def main() -> None:
                 selected_unit.is_jamming = not getattr(selected_unit, 'is_jamming', False)
             elif action.get("type") == "toggle_radar" and selected_unit:
                 selected_unit.radar_active = not getattr(selected_unit, 'radar_active', True)
+            elif action.get("type") == "toggle_iff" and selected_unit:
+                selected_unit.iff_active = not getattr(selected_unit, 'iff_active', True)
             elif action.get("type") == "toggle_roe" and selected_unit:
                 roes = ["FREE", "TIGHT", "HOLD"]
                 selected_unit.roe = roes[(roes.index(selected_unit.roe) + 1) % 3]
@@ -535,6 +559,7 @@ def main() -> None:
             elif action.get("type") == "clear_mission" and selected_unit:
                 selected_unit.mission = None
                 selected_unit.clear_waypoints()
+                selected_unit.leader_uid = "" 
             elif action.get("type") == "weapon_select" and selected_unit:
                 wkey = action["weapon_key"]
                 selected_unit.selected_weapon = None if selected_unit.selected_weapon == wkey else wkey
@@ -553,6 +578,7 @@ def main() -> None:
                         ui.rebuild_weapon_buttons(None, sim)
                 elif event.key == pygame.K_DELETE and selected_unit:
                     selected_unit.clear_waypoints()
+                    selected_unit.leader_uid = "" 
                 elif event.key == pygame.K_s and (event.mod & pygame.KMOD_CTRL) and app_mode == "combat":
                     save_scenario(SAVE_PATH, sim.units, meta, sim.game_time)
                 elif event.key == pygame.K_SPACE and app_mode == "combat":
@@ -677,10 +703,12 @@ def main() -> None:
                             mouse_pos=pygame.mouse.get_pos() if (placing_type or assigning_mission) else None,
                             show_all_enemies=show_all_enemies,
                             show_air_labels=show_air_labels,
-                            show_ground_labels=show_ground_labels)
+                            show_ground_labels=show_ground_labels,
+                            show_radar_rings=show_radar_rings)
 
         ui.update(real_delta, sim, selected_unit, placing_type, placing_remaining, show_all_enemies,
-                  blue_contacts=sim.blue_contacts, show_air_labels=show_air_labels, show_ground_labels=show_ground_labels)
+                  blue_contacts=sim.blue_contacts, show_air_labels=show_air_labels, show_ground_labels=show_ground_labels,
+                  show_radar_rings=show_radar_rings)
         ui.draw()
         pygame.display.flip()
 
