@@ -5,7 +5,8 @@
     "radar": {"type": "ATC Radar", "range_km": 50, "modes": ["air"]},
     "default_loadout": {}, "available_weapons": [],
     "fleet_count": 5, "player_side": "Blue",
-    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 120.0
+    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 120.0,
+    "value_points": 200
   },
   "CarrierB": {
     "display_name": "Aircraft Carrier", "type": "airbase",
@@ -13,7 +14,8 @@
     "radar": {"type": "Sea Search", "range_km": 150, "modes": ["air", "surface"]},
     "default_loadout": {}, "available_weapons": [],
     "fleet_count": 1, "player_side": "Blue",
-    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 90.0
+    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 90.0,
+    "value_points": 500
   },
   "AirbaseR": {
     "display_name": "Military Airbase", "type": "airbase",
@@ -21,410 +23,411 @@
     "radar": {"type": "ATC Radar", "range_km": 50, "modes": ["air"]},
     "default_loadout": {}, "available_weapons": [],
     "fleet_count": 0, "player_side": "Red",
-    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 120.0
+    "rcs_m2": 1000.0, "cruise_alt_ft": 0, "rearm_time_s": 120.0,
+    "value_points": 200
   },
   "MiG-29UA": {
     "display_name": "MiG-29 Fulcrum", "type": "fighter", "speed_kmh": 2400, "ceiling_ft": 57000, "ecm_rating": 0.20,
     "radar": {"type": "N019 Sapfir", "range_km": 150, "modes": ["air"]}, "default_loadout": {"R-27R": 2, "R-27T": 2, "R-73": 4, "GSh-30-1": 2000},
-    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "AIM-9M", "AGM-88", "JDAM_ER", "AASM_Hammer", "GSh-30-1"], "fleet_count": 45, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "AIM-9M", "AGM-88", "JDAM_ER", "AASM_Hammer", "GSh-30-1"], "fleet_count": 45, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 30
   },
   "Su-27UA": {
     "display_name": "Su-27 Flanker-B", "type": "fighter", "speed_kmh": 2500, "ceiling_ft": 59000, "ecm_rating": 0.25,
     "radar": {"type": "N001 Mech", "range_km": 200, "modes": ["air","surface"]}, "default_loadout": {"R-27R": 4, "R-27T": 2, "R-73": 4, "GSh-30-1": 2000},
-    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "AIM-9M", "AGM-88", "JDAM_ER", "GSh-30-1"], "fleet_count": 23, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "AIM-9M", "AGM-88", "JDAM_ER", "GSh-30-1"], "fleet_count": 23, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 35
   },
   "F-16AM": {
     "display_name": "F-16AM Fighting Falcon (MLU)", "type": "fighter", "speed_kmh": 2150, "ceiling_ft": 50000, "ecm_rating": 0.22,
     "radar": {"type": "AN/APG-66(V)2", "range_km": 130, "modes": ["air","surface"]}, "default_loadout": {"AIM-120C": 4, "AIM-9X": 2, "M61A1": 2000},
-    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 23, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 23, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 35
   },
   "F-16UA": {
     "display_name": "F-16 Fighting Falcon (Block 52)", "type": "fighter", "speed_kmh": 2150, "ceiling_ft": 50000, "ecm_rating": 0.18,
     "radar": {"type": "AN/APG-68(V)9", "range_km": 148, "modes": ["air","surface"]}, "default_loadout": {"AIM-120C": 6, "AIM-9X": 2, "M61A1": 2000},
-    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 20, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 20, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 40
   },
   "F-16A": {
     "display_name": "F-16A Fighting Falcon", "type": "fighter", "speed_kmh": 2150, "ceiling_ft": 50000, "ecm_rating": 0.15,
     "radar": {"type": "AN/APG-66", "range_km": 120, "modes": ["air","surface"]}, "default_loadout": {"AIM-120C": 4, "AIM-9X": 2, "M61A1": 2000},
-    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 30
   },
   "F-16C": {
     "display_name": "F-16C Fighting Falcon", "type": "fighter", "speed_kmh": 2150, "ceiling_ft": 50000, "ecm_rating": 0.18,
     "radar": {"type": "AN/APG-68", "range_km": 148, "modes": ["air","surface"]}, "default_loadout": {"AIM-120C": 6, "AIM-9X": 2, "M61A1": 2000},
-    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 8, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["AIM-120C", "AIM-9X", "AIM-9M", "AGM-88", "JDAM_ER", "GBU-39", "AASM_Hammer", "M61A1"], "fleet_count": 8, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 40
   },
   "Su-25UA": {
     "display_name": "Su-25 Frogfoot (CAS)", "type": "attacker", "speed_kmh": 950,  "ceiling_ft": 23000, "ecm_rating": 0.15,
     "radar": {"type": "Klen-PS (laser)", "range_km": 20, "modes": ["surface"]}, "default_loadout": {"R-60M": 2, "S-8": 2, "GSh-30-2": 2000},
-    "available_weapons": ["R-60M", "S-8", "Kh-25ML", "Kh-29T", "GSh-30-2"], "fleet_count": 19, "player_side": "Blue", "rcs_m2": 8.0, "cruise_alt_ft": 12000
+    "available_weapons": ["R-60M", "S-8", "Kh-25ML", "Kh-29T", "GSh-30-2"], "fleet_count": 19, "player_side": "Blue", "rcs_m2": 8.0, "cruise_alt_ft": 12000, "value_points": 20
   },
   "Su-24M": {
     "display_name": "Su-24M Fencer-D (Strike)", "type": "attacker", "speed_kmh": 1700, "ceiling_ft": 36000, "ecm_rating": 0.18,
     "radar": {"type": "Orion-A", "range_km": 50, "modes": ["surface"]}, "default_loadout": {"Kh-25ML": 4, "R-60M": 2, "GSh-6-23": 2000},
-    "available_weapons": ["Kh-25ML", "Kh-29T", "Kh-58", "Storm_Shadow", "R-60M", "GSh-6-23"], "fleet_count": 13, "player_side": "Blue", "rcs_m2": 8.0, "cruise_alt_ft": 12000
+    "available_weapons": ["Kh-25ML", "Kh-29T", "Kh-58", "Storm_Shadow", "R-60M", "GSh-6-23"], "fleet_count": 13, "player_side": "Blue", "rcs_m2": 8.0, "cruise_alt_ft": 12000, "value_points": 25
   },
   "Mirage2000-5F": {
     "display_name": "Mirage 2000-5F", "type": "fighter", "speed_kmh": 2530, "ceiling_ft": 59000, "ecm_rating": 0.28,
     "radar": {"type": "RDY-2", "range_km": 185, "modes": ["air","surface"]}, "default_loadout": {"MICA-EM": 4, "MICA-IR": 2, "DEFA-554": 2000},
-    "available_weapons": ["MICA-EM", "MICA-IR", "Storm_Shadow", "AASM_Hammer", "DEFA-554"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["MICA-EM", "MICA-IR", "Storm_Shadow", "AASM_Hammer", "DEFA-554"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 40
   },
   "Bayraktar_TB2": {
     "display_name": "Bayraktar TB2", "type": "attacker", "speed_kmh": 220, "ceiling_ft": 25000, "ecm_rating": 0.0,
     "radar": {"type": "WESCAM MX-15D", "range_km": 50, "modes": ["surface"]}, "default_loadout": {"MAM-L": 4},
-    "available_weapons": ["MAM-L"], "fleet_count": 50, "player_side": "Blue", "rcs_m2": 0.5, "cruise_alt_ft": 15000
+    "available_weapons": ["MAM-L"], "fleet_count": 50, "player_side": "Blue", "rcs_m2": 0.5, "cruise_alt_ft": 15000, "value_points": 15
   },
   "L-39": {
     "display_name": "L-39 Albatros", "type": "attacker", "speed_kmh": 750, "ceiling_ft": 36000, "ecm_rating": 0.0,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"S-8": 2},
-    "available_weapons": ["S-8"], "fleet_count": 30, "player_side": "Blue", "rcs_m2": 3.0, "cruise_alt_ft": 15000
+    "available_weapons": ["S-8"], "fleet_count": 30, "player_side": "Blue", "rcs_m2": 3.0, "cruise_alt_ft": 15000, "value_points": 10
   },
   "Mi-8UA": {
     "display_name": "Mi-8 Hip (Armed)", "type": "helicopter", "speed_kmh": 260,  "ceiling_ft": 14800, "ecm_rating": 0.05,
     "radar": {"type": "None", "range_km": 15, "modes": ["surface"]}, "default_loadout": {"S-8": 4},
-    "available_weapons": ["S-8"], "fleet_count": 73, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500
+    "available_weapons": ["S-8"], "fleet_count": 73, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500, "value_points": 10
   },
   "Mi-24V": {
     "display_name": "Mi-24V Hind-E (Attack)", "type": "helicopter", "speed_kmh": 320,  "ceiling_ft": 14800, "ecm_rating": 0.10,
     "radar": {"type": "None", "range_km": 20, "modes": ["surface"]}, "default_loadout": {"Shturm": 4, "S-8": 2, "Yak-B": 1000},
-    "available_weapons": ["Shturm", "S-8", "R-60M", "Yak-B"], "fleet_count": 38, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500
+    "available_weapons": ["Shturm", "S-8", "R-60M", "Yak-B"], "fleet_count": 38, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500, "value_points": 15
   },
   "Mi-2UA": {
     "display_name": "Mi-2 Hoplite (Light)", "type": "helicopter", "speed_kmh": 210,  "ceiling_ft": 13100, "ecm_rating": 0.03,
     "radar": {"type": "None", "range_km": 10, "modes": ["surface"]}, "default_loadout": {"S-8": 2},
-    "available_weapons": ["S-8"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500
+    "available_weapons": ["S-8"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 1500, "value_points": 5
   },
   "Su-27S": {
     "display_name": "Su-27S Flanker-B", "type": "fighter", "speed_kmh": 2500, "ceiling_ft": 59000, "ecm_rating": 0.25,
     "radar": {"type": "N001 Mech", "range_km": 240, "modes": ["air","surface"]}, "default_loadout": {"R-27R": 4, "R-27T": 2, "R-73": 4, "GSh-30-1": 2000},
-    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 35
   },
   "Su-35S": {
     "display_name": "Su-35S Flanker-E", "type": "fighter", "speed_kmh": 2500, "ceiling_ft": 59000, "ecm_rating": 0.30,
     "radar": {"type": "Irbis-E", "range_km": 300, "modes": ["air","surface"]}, "default_loadout": {"R-77": 4, "R-27T": 2, "R-73": 6, "GSh-30-1": 2000},
-    "available_weapons": ["R-77", "R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-77", "R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 45
   },
   "MiG-29A": {
     "display_name": "MiG-29A Fulcrum-A", "type": "fighter", "speed_kmh": 2400, "ceiling_ft": 57000, "ecm_rating": 0.20,
     "radar": {"type": "N019 Sapfir", "range_km": 180, "modes": ["air"]}, "default_loadout": {"R-27R": 2, "R-27T": 2, "R-73": 4, "GSh-30-1": 2000},
-    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-27R", "R-27T", "R-73", "R-60M", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 30
   },
   "Su-30SM": {
     "display_name": "Su-30SM Flanker-H", "type": "fighter", "speed_kmh": 2125, "ceiling_ft": 56700, "ecm_rating": 0.28,
     "radar": {"type": "N011M BARS", "range_km": 280, "modes": ["air","surface"]}, "default_loadout": {"R-77": 4, "R-73": 4, "GSh-30-1": 2000},
-    "available_weapons": ["R-77", "R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000
+    "available_weapons": ["R-77", "R-27R", "R-27T", "R-73", "R-60M", "Kh-29T", "Kh-58", "GSh-30-1"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 5.0, "cruise_alt_ft": 30000, "value_points": 40
   },
   "Su-25R": {
     "display_name": "Su-25 Frogfoot (Russian)", "type": "attacker", "speed_kmh": 950, "ceiling_ft": 23000, "ecm_rating": 0.12,
     "radar": {"type": "Klen-PS (laser)", "range_km": 20, "modes": ["surface"]}, "default_loadout": {"R-60M": 2, "S-8": 2, "GSh-30-2": 2000},
-    "available_weapons": ["R-60M", "S-8", "Kh-25ML", "Kh-29T", "GSh-30-2"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 12000
+    "available_weapons": ["R-60M", "S-8", "Kh-25ML", "Kh-29T", "GSh-30-2"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 12000, "value_points": 20
   },
   "S-400": {
     "display_name": "S-400 Triumf (SA-21)", "type": "sam", "speed_kmh": 40, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "91N6E Big Bird", "range_km": 400, "modes": ["air"]}, "default_loadout": {"48N6": 16},
-    "available_weapons": ["48N6"], "fleet_count": 10, "player_side": "Red", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["48N6"], "fleet_count": 10, "player_side": "Red", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 100
   },
   "Buk-M2": {
     "display_name": "Buk-M2 (SA-17)", "type": "sam", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "9S36", "range_km": 120, "modes": ["air"]}, "default_loadout": {"9M317": 4},
-    "available_weapons": ["9M317"], "fleet_count": 40, "player_side": "Red", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["9M317"], "fleet_count": 40, "player_side": "Red", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 40
   },
   "Tor-M1": {
     "display_name": "Tor-M1 (SA-15)", "type": "sam", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Scrum Half", "range_km": 25, "modes": ["air"]}, "default_loadout": {"9M331": 8},
-    "available_weapons": ["9M331"], "fleet_count": 80, "player_side": "Red", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["9M331"], "fleet_count": 80, "player_side": "Red", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 25
   },
   "Patriot": {
     "display_name": "MIM-104 Patriot PAC-3", "type": "sam", "speed_kmh": 40, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "AN/MPQ-65", "range_km": 160, "modes": ["air"]}, "default_loadout": {"PAC-3": 16},
-    "available_weapons": ["PAC-3"], "fleet_count": 3, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["PAC-3"], "fleet_count": 3, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 100
   },
   "NASAMS": {
     "display_name": "NASAMS II", "type": "sam", "speed_kmh": 40, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "AN/MPQ-64F1 Sentinel", "range_km": 75, "modes": ["air"]}, "default_loadout": {"AIM-120_SAM": 6},
-    "available_weapons": ["AIM-120_SAM"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["AIM-120_SAM"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 50
   },
   "IRIS-T_SLM": {
     "display_name": "IRIS-T SLM", "type": "sam", "speed_kmh": 40, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "TRML-4D", "range_km": 250, "modes": ["air"]}, "default_loadout": {"IRIS-T": 8},
-    "available_weapons": ["IRIS-T"], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["IRIS-T"], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 60
   },
   "Gepard": {
     "display_name": "Flakpanzer Gepard SPAAG", "type": "sam", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "S-Band Search", "range_km": 15, "modes": ["air"]}, "default_loadout": {"Gepard_35": 40},
-    "available_weapons": ["Gepard_35"], "fleet_count": 40, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["Gepard_35"], "fleet_count": 40, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "S-300PS": {
     "display_name": "S-300PS (SA-10)", "type": "sam", "speed_kmh": 40, "ceiling_ft": 0, "ecm_rating": 0.1,
     "radar": {"type": "30N6 Flap Lid", "range_km": 200, "modes": ["air"]}, "default_loadout": {"5V55R": 16},
-    "available_weapons": ["5V55R"], "fleet_count": 25, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["5V55R"], "fleet_count": 25, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 80
   },
   "Buk-M1_UA": {
     "display_name": "Buk-M1 (SA-11)", "type": "sam", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "9S35 Snow Drift", "range_km": 85, "modes": ["air"]}, "default_loadout": {"9M38": 4},
-    "available_weapons": ["9M38"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["9M38"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 35
   },
   "Osa-AKM": {
     "display_name": "9K33 Osa (SA-8)", "type": "sam", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Land Roll", "range_km": 30, "modes": ["air"]}, "default_loadout": {"9M33": 6},
-    "available_weapons": ["9M33"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["9M33"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 15
   },
   "Crotale_NG": {
     "display_name": "Crotale NG", "type": "sam", "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Mirador IV", "range_km": 20, "modes": ["air"]}, "default_loadout": {"VT-1": 8},
-    "available_weapons": ["VT-1"], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["VT-1"], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 25
   },
   "Stormer_HVM": {
     "display_name": "Stormer HVM", "type": "sam", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "ADAD Optical", "range_km": 15, "modes": ["air"]}, "default_loadout": {"Starstreak": 8},
-    "available_weapons": ["Starstreak"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["Starstreak"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 15
   },
   "Avenger": {
     "display_name": "AN/TWQ-1 Avenger", "type": "sam", "speed_kmh": 105, "ceiling_ft": 0, "ecm_rating": 0.0,
     "radar": {"type": "Optical sight", "range_km": 10, "modes": ["air"]}, "default_loadout": {"FIM-92": 8},
-    "available_weapons": ["FIM-92"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["FIM-92"], "fleet_count": 12, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "M142_HIMARS": {
     "display_name": "M142 HIMARS", "type": "artillery", "speed_kmh": 85, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "None", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"GMLRS_227": 6},
-    "available_weapons": ["GMLRS_227"], "fleet_count": 18, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["GMLRS_227"], "fleet_count": 18, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 40
   },
   "M270_MLRS": {
     "display_name": "M270 MLRS", "type": "artillery", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "None", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"GMLRS_227": 12},
-    "available_weapons": ["GMLRS_227"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 14.0, "cruise_alt_ft": 0
+    "available_weapons": ["GMLRS_227"], "fleet_count": 6, "player_side": "Blue", "rcs_m2": 14.0, "cruise_alt_ft": 0, "value_points": 50
   },
   "M777": {
     "display_name": "M777 Howitzer", "type": "artillery", "speed_kmh": 5, "ceiling_ft": 0, "ecm_rating": 0.0,
     "radar": {"type": "None", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"ARTY_155": 30},
-    "available_weapons": ["ARTY_155"], "fleet_count": 40, "player_side": "Blue", "rcs_m2": 6.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_155"], "fleet_count": 40, "player_side": "Blue", "rcs_m2": 6.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "PzH2000": {
     "display_name": "PzH 2000 SPH", "type": "artillery", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "None", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"ARTY_155": 60},
-    "available_weapons": ["ARTY_155"], "fleet_count": 18, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_155"], "fleet_count": 18, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 25
   },
   "CAESAR": {
     "display_name": "CAESAR SPH", "type": "artillery", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.01,
     "radar": {"type": "None", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"ARTY_155": 20},
-    "available_weapons": ["ARTY_155"], "fleet_count": 15, "player_side": "Blue", "rcs_m2": 9.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_155"], "fleet_count": 15, "player_side": "Blue", "rcs_m2": 9.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "BM-21_Grad": {
     "display_name": "BM-21 Grad", "type": "artillery", "speed_kmh": 90, "ceiling_ft": 0, "ecm_rating": 0.0,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"ROCKET_122": 40},
-    "available_weapons": ["ROCKET_122"], "fleet_count": 150, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["ROCKET_122"], "fleet_count": 150, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "M109": {
     "display_name": "M109 Paladin", "type": "artillery", "speed_kmh": 56, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"ARTY_155": 39},
-    "available_weapons": ["ARTY_155"], "fleet_count": 150, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_155"], "fleet_count": 150, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "AHS_Krab": {
     "display_name": "AHS Krab", "type": "artillery", "speed_kmh": 67, "ceiling_ft": 0, "ecm_rating": 0.08,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"ARTY_155": 40},
-    "available_weapons": ["ARTY_155"], "fleet_count": 70, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_155"], "fleet_count": 70, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "2S1_Gvozdika": {
     "display_name": "2S1 Gvozdika", "type": "artillery", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.0,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"ARTY_122": 40},
-    "available_weapons": ["ARTY_122"], "fleet_count": 250, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_122"], "fleet_count": 250, "player_side": "Blue", "rcs_m2": 15.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "2S3_Akatsiya": {
     "display_name": "2S3 Akatsiya", "type": "artillery", "speed_kmh": 63, "ceiling_ft": 0, "ecm_rating": 0.0,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": {"ARTY_152": 46},
-    "available_weapons": ["ARTY_152"], "fleet_count": 200, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["ARTY_152"], "fleet_count": 200, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 15
   },
   "T-90R": {
     "display_name": "T-90A / T-90M", "type": "tank", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 30, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 30, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 15
   },
   "T-72R": {
     "display_name": "T-72B1 / T-72B3", "type": "tank", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.06,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 520, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 520, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "T-80R": {
     "display_name": "T-80BV (Russian)", "type": "tank", "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.08,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 38, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 12
   },
   "T-64R": {
     "display_name": "T-64BV (Russian)", "type": "tank", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.06,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 36, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "T-62R": {
     "display_name": "T-62M (Russian)", "type": "tank", "speed_kmh": 50, "ceiling_ft": 0, "ecm_rating": 0.03,
     "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"GUN_125": 40},
-    "available_weapons": ["GUN_125"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "T-55R": {
     "display_name": "T-55AM2 (Russian)", "type": "tank", "speed_kmh": 48, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"GUN_105": 43},
-    "available_weapons": ["GUN_105"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 18.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_105"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 18.0, "cruise_alt_ft": 0, "value_points": 4
   },
   "BMP-2R": {
     "display_name": "BMP-2 (Russian)", "type": "ifv", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
     "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 500, "ATGM_Konkurs": 4},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 150, "player_side": "Red", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 150, "player_side": "Red", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "BMP-1R": {
     "display_name": "BMP-1P (Russian)", "type": "ifv", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 4},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "BMP-3R": {
     "display_name": "BMP-3 (Russian)", "type": "ifv", "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.04,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 500, "ATGM_Konkurs": 4},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "BMD-2R": {
     "display_name": "BMD-2 (Russian VDV)", "type": "ifv", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 300, "ATGM_Konkurs": 2},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "BTR-80R": {
     "display_name": "BTR-80 / BTR-82A (Russian)", "type": "apc", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 300},
-    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 302, "player_side": "Red", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 302, "player_side": "Red", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "BTR-70R": {
     "display_name": "BTR-70 (Russian)", "type": "apc", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.01,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 200},
-    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 9.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 9.0, "cruise_alt_ft": 0, "value_points": 4
   },
   "MTLBR": {
     "display_name": "MT-LB (Russian)", "type": "apc", "speed_kmh": 62, "ceiling_ft": 0, "ecm_rating": 0.01,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 150},
-    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0, "value_points": 3
   },
   "BRDM2R": {
     "display_name": "BRDM-2 / BRDM-2T (Russian)", "type": "recon", "speed_kmh": 95, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical + IR", "range_km": 6, "modes": ["surface"]}, "default_loadout": {"ATGM_Konkurs": 6},
-    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 120, "player_side": "Red", "rcs_m2": 6.0, "cruise_alt_ft": 0
+    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 120, "player_side": "Red", "rcs_m2": 6.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "BRM-1": {
     "display_name": "BRM-1K Recon (Russian)", "type": "recon", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.03,
     "radar": {"type": "PSNR-5K Tall Mike", "range_km": 8, "modes": ["surface"]}, "default_loadout": {"ATGM_Konkurs": 4},
-    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0
+    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 0, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0, "value_points": 6
   },
   "9P148R": {
     "display_name": "9P148 Konkurs ATGM (Russian)", "type": "tank_destroyer", "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"ATGM_Konkurs": 20},
-    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 7, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0
+    "available_weapons": ["ATGM_Konkurs"], "fleet_count": 7, "player_side": "Red", "rcs_m2": 8.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "T-72": {
     "display_name": "T-72 (various)", "type": "tank", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 40, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 520, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 520, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "T-64BV": {
     "display_name": "T-64BV / Bulat", "type": "tank", "speed_kmh": 45, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Thermal sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"GUN_125": 36, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 350, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 350, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "T-80BV": {
     "display_name": "T-80BV", "type": "tank", "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Thermal sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"GUN_125": 38, "ATGM_Konkurs": 4},
-    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125", "ATGM_Konkurs"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 12
   },
   "PT-91": {
     "display_name": "PT-91 Twardy", "type": "tank", "speed_kmh": 60, "ceiling_ft": 0, "ecm_rating": 0.08,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_125": 40},
-    "available_weapons": ["GUN_125"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_125"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 12
   },
   "Challenger2": {
     "display_name": "Challenger 2", "type": "tank", "speed_kmh": 59, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "Hunter-killer sight", "range_km": 7, "modes": ["surface"]}, "default_loadout": {"GUN_120UK": 40},
-    "available_weapons": ["GUN_120UK"], "fleet_count": 14, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_120UK"], "fleet_count": 14, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "Leopard2": {
     "display_name": "Leopard 2A4/A6 / Strv 122", "type": "tank", "speed_kmh": 72, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "Hunter-killer sight", "range_km": 7, "modes": ["surface"]}, "default_loadout": {"GUN_120NATO": 42, "ATGM_TOW": 2},
-    "available_weapons": ["GUN_120NATO", "ATGM_TOW"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_120NATO", "ATGM_TOW"], "fleet_count": 60, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "Leopard1A5": {
     "display_name": "Leopard 1A5", "type": "tank", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "EMES 18", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"GUN_105": 55},
-    "available_weapons": ["GUN_105"], "fleet_count": 135, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_105"], "fleet_count": 135, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "M1Abrams": {
     "display_name": "M1A1 Abrams", "type": "tank", "speed_kmh": 68, "ceiling_ft": 0, "ecm_rating": 0.10,
     "radar": {"type": "Hunter-killer sight", "range_km": 7, "modes": ["surface"]}, "default_loadout": {"GUN_120NATO": 40, "ATGM_TOW": 2},
-    "available_weapons": ["GUN_120NATO", "ATGM_TOW"], "fleet_count": 25, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0
+    "available_weapons": ["GUN_120NATO", "ATGM_TOW"], "fleet_count": 25, "player_side": "Blue", "rcs_m2": 20.0, "cruise_alt_ft": 0, "value_points": 20
   },
   "Bradley": {
     "display_name": "M2 Bradley", "type": "ifv", "speed_kmh": 66, "ceiling_ft": 0, "ecm_rating": 0.06,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_25": 900, "ATGM_TOW": 7},
-    "available_weapons": ["AUTOCANNON_25", "ATGM_TOW"], "fleet_count": 350, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_25", "ATGM_TOW"], "fleet_count": 350, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 10
   },
   "BMP-1": {
     "display_name": "BMP-1", "type": "ifv", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 3, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 300},
-    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 200, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30"], "fleet_count": 200, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "BTR-4": {
     "display_name": "BTR-4 Bucephalus", "type": "apc", "speed_kmh": 110, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Thermal sight", "range_km": 5, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 400, "ATGM_Stugna": 4},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Stugna"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Stugna"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "BTR-3": {
     "display_name": "BTR-3", "type": "apc", "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.04,
     "radar": {"type": "Thermal sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 350, "ATGM_Stugna": 2},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_Stugna"], "fleet_count": 90, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_Stugna"], "fleet_count": 90, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 7
   },
   "Marder1A3": {
     "display_name": "Marder 1A3", "type": "ifv", "speed_kmh": 65, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Thermal sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_25": 400},
-    "available_weapons": ["AUTOCANNON_25"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_25"], "fleet_count": 100, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "CV9040C": {
     "display_name": "CV9040C", "type": "ifv", "speed_kmh": 70, "ceiling_ft": 0, "ecm_rating": 0.08,
     "radar": {"type": "Thermal sight", "range_km": 6, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_40": 240},
-    "available_weapons": ["AUTOCANNON_40"], "fleet_count": 50, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_40"], "fleet_count": 50, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 12
   },
   "Stryker": {
     "display_name": "Stryker M1126", "type": "apc", "speed_kmh": 96, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "Optical sight", "range_km": 4, "modes": ["surface"]}, "default_loadout": {"AUTOCANNON_30": 200, "ATGM_TOW": 2},
-    "available_weapons": ["AUTOCANNON_30", "ATGM_TOW"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["AUTOCANNON_30", "ATGM_TOW"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 8
   },
   "M113": {
     "display_name": "M113", "type": "apc", "speed_kmh": 67, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"Yak-B": 2000},
-    "available_weapons": ["Yak-B"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["Yak-B"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 4
   },
   "MT-LB": {
     "display_name": "MT-LB", "type": "apc", "speed_kmh": 61, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"Yak-B": 1000},
-    "available_weapons": ["Yak-B"], "fleet_count": 300, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["Yak-B"], "fleet_count": 300, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 3
   },
   "VAB": {
     "display_name": "VAB", "type": "apc", "speed_kmh": 90, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"Yak-B": 1000},
-    "available_weapons": ["Yak-B"], "fleet_count": 250, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["Yak-B"], "fleet_count": 250, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "MaxxPro": {
     "display_name": "Navistar MaxxPro", "type": "apc", "speed_kmh": 105, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"Yak-B": 1000},
-    "available_weapons": ["Yak-B"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0
+    "available_weapons": ["Yak-B"], "fleet_count": 400, "player_side": "Blue", "rcs_m2": 12.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "Bushmaster": {
     "display_name": "Bushmaster PMV", "type": "apc", "speed_kmh": 100, "ceiling_ft": 0, "ecm_rating": 0.02,
     "radar": {"type": "Optical sight", "range_km": 2, "modes": ["surface"]}, "default_loadout": {"Yak-B": 1000},
-    "available_weapons": ["Yak-B"], "fleet_count": 120, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0
+    "available_weapons": ["Yak-B"], "fleet_count": 120, "player_side": "Blue", "rcs_m2": 10.0, "cruise_alt_ft": 0, "value_points": 5
   },
   "Flamingo_TEL": { "display_name": "FP-5 Flamingo TEL", "type": "artillery", "speed_kmh": 80, "ceiling_ft": 0, "ecm_rating": 0.05,
     "radar": {"type": "None", "range_km": 0, "modes": []}, "default_loadout": { "FP-5_Flamingo": 1},
-    "available_weapons": ["FP-5_Flamingo"], "fleet_count": 20, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0
+    "available_weapons": ["FP-5_Flamingo"], "fleet_count": 20, "player_side": "Blue", "rcs_m2": 25.0, "cruise_alt_ft": 0, "value_points": 60
   },
   "E-3G_Sentry": {
     "display_name": "E-3G Sentry (AWACS)", "type": "awacs", "speed_kmh": 850, "ceiling_ft": 40000, "ecm_rating": 0.20,
     "radar": {"type": "AN/APY-2", "range_km": 600, "modes": ["air", "surface"]}, "default_loadout": {},
-    "available_weapons": [], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 30.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0
+    "available_weapons": [], "fleet_count": 4, "player_side": "Blue", "rcs_m2": 30.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0, "value_points": 250
   },
   "A-50U_Mainstay": {
     "display_name": "A-50U Mainstay (AWACS)", "type": "awacs", "speed_kmh": 800, "ceiling_ft": 39000, "ecm_rating": 0.15,
     "radar": {"type": "Shmel-M", "range_km": 500, "modes": ["air", "surface"]}, "default_loadout": {},
-    "available_weapons": [], "fleet_count": 0, "player_side": "Red", "rcs_m2": 35.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0
+    "available_weapons": [], "fleet_count": 0, "player_side": "Red", "rcs_m2": 35.0, "cruise_alt_ft": 30000, "rearm_time_s": 3600.0, "value_points": 250
   }
 }

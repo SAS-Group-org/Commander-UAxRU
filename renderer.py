@@ -37,14 +37,20 @@ class Renderer:
                    missiles: list[Missile],
                    win_w: int, map_h: int,
                    blue_contacts: dict[str, Contact] | None = None,
+                   explosions: list = None,
                    placing_type: str | None = None,
                    placing_remaining: int = 0,
                    mouse_pos: tuple[int, int] | None = None,
                    show_all_enemies: bool = False,
                    show_air_labels: bool = True,
                    show_ground_labels: bool = True,
-                   show_radar_rings: bool = True) -> None:
+                   show_radar_rings: bool = True,
+                   package_waypoints: list[tuple[float, float, float]] | None = None) -> None:
+        
         contacts = blue_contacts or {}
+        explosions = explosions or []
+        package_waypoints = package_waypoints or []
+        
         self.surface.fill((18, 26, 34))
         self._draw_tiles(cam_px, cam_py, zoom, win_w, map_h)
         
@@ -53,7 +59,12 @@ class Renderer:
             
         self._draw_routes(cam_px, cam_py, zoom, units, win_w, map_h, show_all_enemies)
         
+        # Draw the custom waypoints during strike package planning
+        if placing_type == "STRIKE PACKAGE TARGET" and (package_waypoints or mouse_pos):
+            self._draw_pending_route(cam_px, cam_py, zoom, win_w, map_h, package_waypoints, mouse_pos)
+        
         self._draw_missiles(cam_px, cam_py, zoom, missiles, win_w, map_h)
+        self._draw_explosions(cam_px, cam_py, zoom, explosions, win_w, map_h)
         self._draw_units(cam_px, cam_py, zoom, units, win_w, map_h, contacts, show_all_enemies, show_air_labels, show_ground_labels)
         self._draw_contacts(cam_px, cam_py, zoom, contacts, units, win_w, map_h, show_all_enemies, show_air_labels, show_ground_labels)
         
@@ -83,7 +94,8 @@ class Renderer:
         for unit in units:
             if not unit.alive or unit.duty_state != "ACTIVE": continue
             if unit.side == "Red" and not show_all_enemies: continue         
-            if not getattr(unit, 'radar_active', True): continue
+            
+            if not getattr(unit, 'search_radar_active', True): continue
                 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             
@@ -106,12 +118,36 @@ class Renderer:
                 
             sx, sy = world_to_screen(unit.lat, unit.lon, cam_px, cam_py, zoom, win_w, map_h)
             points = [(sx, sy)]
-            for wlat, wlon in unit.waypoints:
+            
+            # FIXED: Robust parsing for both 2-tuple and 3-tuple waypoints
+            for wp in unit.waypoints:
+                wlat, wlon = wp[0], wp[1]
                 wx, wy = world_to_screen(wlat, wlon, cam_px, cam_py, zoom, win_w, map_h)
                 points.append((wx, wy))
                 pygame.draw.circle(self.surface, WAYPOINT_COLOR, (int(wx), int(wy)), 3)
+            
             if len(points) > 1:
                 pygame.draw.lines(self.surface, ROUTE_LINE_COLOR, False, points, 1)
+
+    def _draw_pending_route(self, cam_px, cam_py, zoom, win_w, map_h, package_waypoints, mouse_pos) -> None:
+        points = []
+        
+        for wp in package_waypoints:
+            wlat, wlon, walt = wp[0], wp[1], wp[2]
+            wx, wy = world_to_screen(wlat, wlon, cam_px, cam_py, zoom, win_w, map_h)
+            points.append((wx, wy))
+            
+            pygame.draw.circle(self.surface, (200, 200, 50), (int(wx), int(wy)), 4, 1)
+            
+            if walt >= 0:
+                alt_lbl = self._font_sm.render(f"{int(walt)}ft", True, (200, 200, 50))
+                self.surface.blit(alt_lbl, (int(wx) + 6, int(wy) - 10))
+
+        if mouse_pos and mouse_pos[1] < map_h:
+            points.append(mouse_pos)
+            
+        if len(points) > 1:
+            pygame.draw.lines(self.surface, (200, 200, 50), False, points, 1)
 
     def _draw_missiles(self, cam_px, cam_py, zoom, missiles, win_w, map_h) -> None:
         for m in missiles:
@@ -128,6 +164,22 @@ class Renderer:
                 self.surface.blit(s, (int(tx) - radius, int(ty) - radius))
             mx, my = world_to_screen(m.lat, m.lon, cam_px, cam_py, zoom, win_w, map_h)
             pygame.draw.circle(self.surface, color, (int(mx), int(my)), 3)
+
+    def _draw_explosions(self, cam_px, cam_py, zoom, explosions, win_w, map_h) -> None:
+        for exp in explosions:
+            progress = exp.life / exp.max_life
+            alpha = int(255 * (1.0 - progress))
+            current_radius_km = exp.max_radius_km * (0.1 + 0.9 * progress)
+            ex, ey = world_to_screen(exp.lat, exp.lon, cam_px, cam_py, zoom, win_w, map_h)
+            
+            lat_edge = exp.lat + (current_radius_km / 111.32)
+            _, py_center = lat_lon_to_pixel(exp.lat, exp.lon, zoom)
+            _, py_edge = lat_lon_to_pixel(lat_edge, exp.lon, zoom)
+            px_radius = max(2, int(abs(py_center - py_edge)))
+
+            s = pygame.Surface((px_radius * 2, px_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (255, 100, 50, alpha), (px_radius, px_radius), px_radius, max(1, px_radius // 4))
+            self.surface.blit(s, (int(ex) - px_radius, int(ey) - px_radius))
 
     def _draw_units(self, cam_px, cam_py, zoom, units, win_w, map_h,
                    contacts: dict, show_all_enemies: bool, show_air_labels: bool, show_ground_labels: bool) -> None:
@@ -324,8 +376,8 @@ class Renderer:
                     self.surface.blit(type_lbl,     (int(sx) + 13, int(sy) + 2))
 
     def _draw_placement_cursor(self, mouse_pos: tuple[int, int],
-                                placing_type: str,
-                                placing_remaining: int = 0) -> None:
+                               placing_type: str,
+                               placing_remaining: int = 0) -> None:
         mx, my = mouse_pos
         size   = 16
         col    = (80, 220, 120)

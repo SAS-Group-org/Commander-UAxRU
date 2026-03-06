@@ -52,7 +52,8 @@ def classify_detection(sensor_unit: "Unit", target: "Unit", dist_km: float) -> t
     penalty = getattr(sensor_unit, 'inefficiency_penalty', 0.0)
 
     # 1. ESM (Passive radar sniffing - Huge Range, Poor Resolution)
-    if getattr(target, 'radar_active', False) and target.platform.radar_range_km > 0:
+    is_emitting = getattr(target, 'search_radar_active', False) or getattr(target, 'fc_radar_active', False)
+    if is_emitting and target.platform.radar_range_km > 0:
         esm_range = sensor_unit.platform.esm_range_km * (1.0 - penalty)
         if dist_km <= esm_range:
             best_cls = "PROBABLE" 
@@ -65,8 +66,8 @@ def classify_detection(sensor_unit: "Unit", target: "Unit", dist_km: float) -> t
             best_cls = "CONFIRMED"
             best_sen = "IR"
 
-    # 3. Active Radar (Standard Ping)
-    if getattr(sensor_unit, 'radar_active', True) and sensor_unit.platform.radar_range_km > 0:
+    # 3. Active Radar (Requires Search Radar to be active)
+    if getattr(sensor_unit, 'search_radar_active', True) and sensor_unit.platform.radar_range_km > 0:
         rcs_ratio  = max(target.platform.rcs_m2, 0.01) / RCS_REFERENCE_M2
         R_rcs      = (sensor_unit.platform.radar_range_km * sensor_unit.performance_mult) * (rcs_ratio ** 0.25)
         
@@ -114,19 +115,52 @@ def update_local_contacts(sensor_units: list["Unit"], target_units: list["Unit"]
         if best_cls == "NONE": continue  
         refreshed.add(target.uid)
 
-        # IFF Interrogation & Perception Logic
-        p_side = "UNKNOWN"
-        if getattr(target, 'iff_active', False) and target.side == sensor_units[0].side:
-            p_side = target.side  
-        elif best_sen == "IR" or best_rank >= 3:
-            p_side = target.side  
+        # ─── IFF SPOOFING & FRATRICIDE LOGIC ──────────────────────────────────
+        actual_side = target.side
+        observer_side = sensor_units[0].side
+        opp_side = "Red" if actual_side == "Blue" else "Blue"
+        
+        existing = local_contacts.get(target.uid)
+        
+        # Decide if we need to make a new probabilistic IFF roll
+        make_new_roll = False
+        if not existing or existing.perceived_side == "UNKNOWN":
+            make_new_roll = True
+        elif best_sen == "IR" and existing.perceived_side != actual_side:
+            make_new_roll = True # Visual ID instantly corrects IFF errors
+        elif best_rank >= 2 and existing.perceived_side != actual_side and random.random() < 0.05:
+            make_new_roll = True # 5% chance per tick to realize a mistake if the track is solid
+            
+        if make_new_roll:
+            misid_chance = 0.0
+            if best_sen != "IR":
+                if best_rank == 3: misid_chance = 0.02
+                elif best_rank == 2: misid_chance = 0.15
+                elif best_rank == 1: misid_chance = 0.35
+                
+                # Distance penalty (up to +20% at long ranges)
+                misid_chance += min(0.20, (best_dist / 150.0) * 0.15)
+                
+                # ECM / Jamming severely impacts IFF interrogation
+                if target.is_jamming: misid_chance += 0.25
+                
+                # Friendly IFF transponder cuts misidentification chance by 90%
+                if actual_side == observer_side and getattr(target, 'iff_active', False):
+                    misid_chance *= 0.10
+                    
+            if random.random() < misid_chance:
+                # IFF Failed!
+                if random.random() < 0.40:
+                    p_side = opp_side  # Dangerous mis-ID (Fratricide risk!)
+                else:
+                    p_side = "UNKNOWN" # Safe mis-ID (System just can't tell)
+            else:
+                p_side = actual_side
         else:
-            existing = local_contacts.get(target.uid)
-            if existing and existing.perceived_side != "UNKNOWN":
-                p_side = existing.perceived_side
+            p_side = existing.perceived_side if existing else "UNKNOWN"
+        # ──────────────────────────────────────────────────────────────────────
 
         # Calculate Positional Error (Latency & Sensor Accuracy)
-        # TUNED: Reduced base errors to prevent massive UI jumps at long distances
         error_km = 0.0
         if best_sen == "ESM": error_km = best_dist * 0.04  
         elif best_sen == "RADAR": error_km = best_dist * 0.004 
@@ -146,7 +180,6 @@ def update_local_contacts(sensor_units: list["Unit"], target_units: list["Unit"]
                 sensor_type=best_sen, pos_error_km=error_km, error_angle=angle, base_pos_error_km=error_km
             )
         else:
-            # TUNED: Extreme slow-down of the random angle walk to stop jitter
             contact.error_angle = (contact.error_angle + random.uniform(-0.5, 0.5)) % 360
             dlat = (math.cos(math.radians(contact.error_angle)) * error_km) / 111.32
             dlon = (math.sin(math.radians(contact.error_angle)) * error_km) / (111.32 * max(0.0001, math.cos(math.radians(target.lat))))
@@ -154,7 +187,6 @@ def update_local_contacts(sensor_units: list["Unit"], target_units: list["Unit"]
             ideal_lat = target.lat + dlat
             ideal_lon = target.lon + dlon
             
-            # TUNED: Dropped interpolation rate to 0.2% per frame for heavy visual inertia
             contact.est_lat += (ideal_lat - contact.est_lat) * 0.002
             contact.est_lon += (ideal_lon - contact.est_lon) * 0.002
             

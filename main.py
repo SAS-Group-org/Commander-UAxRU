@@ -9,6 +9,7 @@ import json
 import pathlib
 import tkinter as tk
 from tkinter import filedialog
+import math
 
 import pygame
 import pygame_gui
@@ -393,7 +394,13 @@ def _handle_right_click(screen_pos, cam: CameraState,
             sim.log(f"{selected.callsign}: no weapons available.")
     else:
         lat, lon = cam.screen_to_world(screen_pos[0], screen_pos[1])
-        selected.add_waypoint(lat, lon)
+        
+        if selected.platform.unit_type in ("tank", "ifv", "apc", "recon", "tank_destroyer", "sam", "artillery"):
+            if _is_water(lat, lon):
+                sim.log(f"{selected.callsign}: COMMAND REJECTED. Cannot route ground units over water.")
+                return
+                
+        selected.add_waypoint(lat, lon, -1.0)
         sim.log(f"{selected.callsign}: waypoint → ({lat:.2f}°, {lon:.2f}°).")
 
 
@@ -446,7 +453,13 @@ def main() -> None:
     selected_unit:     Unit | None     = None
     assigning_mission: str | None      = None
     assigning_package_state: dict | None = None
+    assigning_package_tot: float       = 0.0
+    
+    assigning_package_waypoints: list[tuple[float, float, float]] = []
+    
     is_dragging:       bool            = False
+    drag_start_pos:    tuple[int, int] | None = None
+    
     show_all_enemies:  bool            = False
     game_over_triggered: bool          = False
     
@@ -483,138 +496,175 @@ def main() -> None:
                 sim.paused = (sim.time_compression == 0)
 
             action = ui.process_events(event)
-
-            if action.get("type") == "open_pkg_window" and selected_unit:
-                ui._create_strike_package_window(selected_unit, sim)
-            elif action.get("type") == "prep_launch_package":
-                assigning_package_state = action["state"]
-                sim.log("Click map to set package target and launch...")
-
-            elif action.get("type") == "speed_change":
-                sim.set_compression(TIME_SPEEDS[action["speed_idx"]])
-            elif action.get("type") == "toggle_air_labels":
-                show_air_labels = not show_air_labels
-            elif action.get("type") == "toggle_ground_labels":
-                show_ground_labels = not show_ground_labels
-            elif action.get("type") == "toggle_radar_rings":
-                show_radar_rings = not show_radar_rings
-            elif action.get("type") == "toggle_bgm":
-                if bgm_loaded:
-                    bgm_enabled = not bgm_enabled
-                    if bgm_enabled:
-                        pygame.mixer.music.unpause()
-                    else:
-                        pygame.mixer.music.pause()
-            elif action.get("type") == "set_volume":
-                if bgm_loaded:
-                    pygame.mixer.music.set_volume(action["value"])
-            elif action.get("type") == "place_unit":
-                placing_type      = action["platform_key"]
-                placing_remaining = action.get("quantity", 1)
-            elif action.get("type") == "place_unit_no_selection": 
-                pass   
-            elif action.get("type") == "auto_deploy_blue":
-                _auto_deploy_blue(db, sim, placement_counts)
-            elif action.get("type") == "save_deployment":
-                root = tk.Tk()
-                root.withdraw()
-                path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")], title="Save Blue Deployment")
-                if path: save_deployment(path, [u for u in sim.units if u.side == "Blue"])
-                root.destroy()
-            elif action.get("type") == "load_deployment":
-                root = tk.Tk()
-                root.withdraw()
-                path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")], title="Load Blue Deployment")
-                if path and os.path.exists(path):
-                    loaded_blues = load_deployment(path, db)
-                    sim.units.extend(loaded_blues)
-                    sim.log(f"Deployed {len(loaded_blues)} reinforcement units.")
-                root.destroy()
-            elif action.get("type") == "remove_selected":
-                if selected_unit and selected_unit.side == "Blue":
-                    selected_unit.take_damage(999.0)
-                    sim.units = [u for u in sim.units if u.alive]
-                    selected_unit = None
-            elif action.get("type") == "clear_blue":
-                sim.units = [u for u in sim.units if u.side == "Red"]
-                selected_unit, placing_type, placing_remaining = None, None, 0
-            elif action.get("type") == "start_sim":
-                app_mode = "combat"
-                ui.set_mode("combat")
-                sim.set_compression(TIME_SPEEDS[ui.active_speed_idx])
-                sim.log(f"Simulation {'resumed' if sim.game_time > 0 else 'started'} — {len(sim.blue_units())} Blue, {len(sim.red_units())} Red")
-            elif action.get("type") == "enter_setup":
-                app_mode = "setup"
-                ui.set_mode("setup")
-                sim.set_compression(0)
-                sim.log("Simulation paused for reinforcements.")
-            elif action.get("type") == "restart_scenario":
-                fresh_units, meta, events = load_scenario(SCENARIO_PATH, db)
-                sim.units = fresh_units
-                sim.events = events
-                sim.missiles.clear()
-                sim.salvos.clear()
-                sim.game_time = 0.0
-                sim.event_log.clear()
-                sim.game_over_reason = None
-                sim.blue_contacts.clear()
-                sim.set_compression(0)
-                app_mode, selected_unit, placing_type, placing_remaining, assigning_mission, game_over_triggered = "setup", None, None, 0, None, False
-                ui.set_mode("setup")
-                sim.log("Scenario restarted.")
-            elif action.get("type") == "toggle_fow": show_all_enemies = not show_all_enemies
-            elif action.get("type") == "toggle_auto_engage" and selected_unit:
-                selected_unit.auto_engage = not getattr(selected_unit, 'auto_engage', False)
-            elif action.get("type") == "toggle_roe" and selected_unit:
-                roes = ["FREE", "TIGHT", "HOLD"]
-                selected_unit.roe = roes[(roes.index(selected_unit.roe) + 1) % 3]
-            elif action.get("type") == "cycle_emcon" and selected_unit:
-                states = ["SILENT", "ACTIVE", "BLINDING"]
-                cur = getattr(selected_unit, 'emcon_state', "ACTIVE")
-                selected_unit.set_emcon(states[(states.index(cur) + 1) % len(states)])
-            elif action.get("type") == "select_parked":
-                p_unit = sim.get_unit_by_uid(action["uid"])
-                if p_unit:
-                    if selected_unit: selected_unit.selected = False
-                    selected_unit = p_unit
-                    selected_unit.selected = True
-                    if not selected_unit.mission:
-                        base = sim.get_unit_by_uid(selected_unit.home_uid)
-                        lat, lon = (base.lat, base.lon) if base else (selected_unit.lat, selected_unit.lon)
-                        selected_unit.mission = Mission(f"{selected_unit.callsign} Alpha", "CAP", lat, lon, 30.0, selected_unit.platform.cruise_alt_ft, 0.25)
+            
+            if action:
+                if action.get("type") == "open_pkg_window" and selected_unit:
+                    ui._create_strike_package_window(selected_unit, sim)
+                elif action.get("type") == "prep_launch_package":
+                    assigning_package_state = action["state"]
+                    assigning_package_tot = action.get("tot_mins", 0.0)
+                    assigning_package_waypoints.clear()
+                    sim.log(f"Right-click to add waypoints. Left-click to set final target & launch. ESC to cancel. (ToT Offset: {assigning_package_tot}m)")
+                elif action.get("type") == "add_package_waypoint":
+                    assigning_package_waypoints.append((action["lat"], action["lon"], action["alt"]))
+                    sim.log(f"Waypoint added at {int(action['alt'])} ft.")
+                elif action.get("type") == "speed_change":
+                    sim.set_compression(TIME_SPEEDS[action["speed_idx"]])
+                elif action.get("type") == "toggle_air_labels":
+                    show_air_labels = not show_air_labels
+                elif action.get("type") == "toggle_ground_labels":
+                    show_ground_labels = not show_ground_labels
+                elif action.get("type") == "toggle_radar_rings":
+                    show_radar_rings = not show_radar_rings
+                elif action.get("type") == "toggle_bgm":
+                    if bgm_loaded:
+                        bgm_enabled = not bgm_enabled
+                        if bgm_enabled: pygame.mixer.music.unpause()
+                        else: pygame.mixer.music.pause()
+                elif action.get("type") == "set_volume":
+                    if bgm_loaded: pygame.mixer.music.set_volume(action["value"])
+                elif action.get("type") == "place_unit":
+                    placing_type      = action["platform_key"]
+                    placing_remaining = action.get("quantity", 1)
+                elif action.get("type") == "place_unit_no_selection": 
+                    pass   
+                elif action.get("type") == "auto_deploy_blue":
+                    _auto_deploy_blue(db, sim, placement_counts)
+                elif action.get("type") == "save_deployment":
+                    root = tk.Tk()
+                    root.withdraw()
+                    path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")], title="Save Blue Deployment")
+                    if path: save_deployment(path, [u for u in sim.units if u.side == "Blue"])
+                    root.destroy()
+                elif action.get("type") == "load_deployment":
+                    root = tk.Tk()
+                    root.withdraw()
+                    path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")], title="Load Blue Deployment")
+                    if path and os.path.exists(path):
+                        loaded_blues = load_deployment(path, db)
+                        sim.units.extend(loaded_blues)
+                        sim.log(f"Deployed {len(loaded_blues)} reinforcement units.")
+                    root.destroy()
+                elif action.get("type") == "remove_selected":
+                    if selected_unit and selected_unit.side == "Blue":
+                        selected_unit.take_damage(999.0)
+                        sim.units = [u for u in sim.units if u.alive]
+                        selected_unit = None
+                elif action.get("type") == "clear_blue":
+                    sim.units = [u for u in sim.units if u.side == "Red"]
+                    selected_unit, placing_type, placing_remaining = None, None, 0
+                elif action.get("type") == "start_sim":
+                    app_mode = "combat"
+                    ui.set_mode("combat")
+                    sim.set_compression(TIME_SPEEDS[ui.active_speed_idx])
+                    sim.log(f"Simulation {'resumed' if sim.game_time > 0 else 'started'} — {len(sim.blue_units())} Blue, {len(sim.red_units())} Red")
+                elif action.get("type") == "enter_setup":
+                    app_mode = "setup"
+                    ui.set_mode("setup")
+                    sim.set_compression(0)
+                    sim.log("Simulation paused for reinforcements.")
+                elif action.get("type") == "end_game":
+                    sim.game_over_reason = "Manual end by player."
+                    sim.log("*** MISSION TERMINATED BY COMMANDER ***")
+                    sim.set_compression(0)
+                    game_over_triggered = True
+                    aar_data = sim.generate_aar()
+                    ui.create_aar_window(aar_data)
+                elif action.get("type") == "restart_scenario":
+                    fresh_units, meta, events = load_scenario(SCENARIO_PATH, db)
+                    sim.units = fresh_units
+                    sim.events = events
+                    sim.missiles.clear()
+                    sim.explosions.clear()
+                    sim.salvos.clear()
+                    sim.game_time = 0.0
+                    sim.event_log.clear()
+                    sim.game_over_reason = None
+                    sim.score_blue = 0
+                    sim.score_red = 0
+                    sim.aar_log.clear()
+                    sim.blue_contacts.clear()
+                    sim.set_compression(0)
+                    app_mode, selected_unit, placing_type, placing_remaining, assigning_mission, game_over_triggered = "setup", None, None, 0, None, False
+                    assigning_package_tot = 0.0
+                    assigning_package_waypoints.clear()
+                    ui.set_mode("setup")
+                    sim.log("Scenario restarted.")
+                elif action.get("type") == "toggle_fow": show_all_enemies = not show_all_enemies
+                elif action.get("type") == "toggle_auto_engage" and selected_unit:
+                    selected_unit.auto_engage = not getattr(selected_unit, 'auto_engage', False)
+                elif action.get("type") == "toggle_roe" and selected_unit:
+                    roes = ["FREE", "TIGHT", "HOLD"]
+                    selected_unit.roe = roes[(roes.index(selected_unit.roe) + 1) % 3]
+                elif action.get("type") == "cycle_emcon" and selected_unit:
+                    states = ["SILENT", "SEARCH_ONLY", "ACTIVE", "BLINDING"]
+                    cur = getattr(selected_unit, 'emcon_state', "ACTIVE")
+                    selected_unit.set_emcon(states[(states.index(cur) + 1) % len(states)])
+                elif action.get("type") == "cycle_wra_rng" and selected_unit:
+                    pcts = [0.90, 0.75, 0.50, 0.25]
+                    selected_unit.wra_range_pct = pcts[(pcts.index(selected_unit.wra_range_pct) + 1) % len(pcts)]
+                elif action.get("type") == "cycle_wra_qty" and selected_unit:
+                    qtys = [1, 2, 4]
+                    selected_unit.wra_qty = qtys[(qtys.index(selected_unit.wra_qty) + 1) % len(qtys)]
+                elif action.get("type") == "cycle_formation" and selected_unit:
+                    forms = ["WEDGE", "LINE", "TRAIL"]
+                    selected_unit.formation = forms[(forms.index(selected_unit.formation) + 1) % len(forms)]
+                elif action.get("type") == "cycle_doctrine" and selected_unit:
+                    docs = ["STANDARD", "AMBUSH_COVER"]
+                    selected_unit.flight_doctrine = docs[(docs.index(selected_unit.flight_doctrine) + 1) % len(docs)]
+                elif action.get("type") == "select_parked":
+                    p_unit = sim.get_unit_by_uid(action["uid"])
+                    if p_unit:
+                        if selected_unit: selected_unit.selected = False
+                        selected_unit = p_unit
+                        selected_unit.selected = True
+                        if not selected_unit.mission:
+                            base = sim.get_unit_by_uid(selected_unit.home_uid)
+                            lat, lon = (base.lat, base.lon) if base else (selected_unit.lat, selected_unit.lon)
+                            selected_unit.mission = Mission(f"{selected_unit.callsign} Alpha", "CAP", lat, lon, 30.0, selected_unit.platform.cruise_alt_ft, 0.25)
+                        ui.rebuild_weapon_buttons(selected_unit, sim)
+                elif action.get("type") == "cycle_mission" and selected_unit:
+                    msns = ["CAP", "STRIKE", "SEAD"]
+                    cur = selected_unit.mission.mission_type if selected_unit.mission else "CAP"
+                    if selected_unit.mission: selected_unit.mission.mission_type = msns[(msns.index(cur) + 1) % len(msns)]
+                elif action.get("type") == "cycle_loadout" and selected_unit:
+                    selected_unit.cycle_loadout(db)
                     ui.rebuild_weapon_buttons(selected_unit, sim)
-            elif action.get("type") == "cycle_mission" and selected_unit:
-                msns = ["CAP", "STRIKE", "SEAD"]
-                cur = selected_unit.mission.mission_type if selected_unit.mission else "CAP"
-                if selected_unit.mission: selected_unit.mission.mission_type = msns[(msns.index(cur) + 1) % len(msns)]
-            elif action.get("type") == "cycle_loadout" and selected_unit:
-                selected_unit.cycle_loadout(db)
-                ui.rebuild_weapon_buttons(selected_unit, sim)
-            elif action.get("type") == "launch_unit" and selected_unit:
-                if selected_unit.duty_state == "READY":
-                    selected_unit.duty_state = "ACTIVE"
-                    selected_unit.altitude_ft = selected_unit.platform.cruise_alt_ft
-                    selected_unit.target_altitude_ft = selected_unit.platform.cruise_alt_ft
+                elif action.get("type") == "launch_unit" and selected_unit:
+                    if selected_unit.duty_state == "READY":
+                        selected_unit.duty_state = "ACTIVE"
+                        selected_unit.altitude_ft = selected_unit.platform.cruise_alt_ft
+                        selected_unit.target_altitude_ft = selected_unit.platform.cruise_alt_ft
+                        selected_unit.clear_waypoints()
+                        sim.log(f"{selected_unit.callsign}: Launched for {selected_unit.mission.mission_type if selected_unit.mission else 'Patrol'}.")
+                        ui.rebuild_weapon_buttons(selected_unit, sim)
+                elif action.get("type") == "assign_cap" and selected_unit: assigning_mission = "CAP"
+                elif action.get("type") == "clear_mission" and selected_unit:
+                    selected_unit.mission = None
                     selected_unit.clear_waypoints()
-                    sim.log(f"{selected_unit.callsign}: Launched for {selected_unit.mission.mission_type if selected_unit.mission else 'Patrol'}.")
+                    selected_unit.leader_uid = "" 
+                elif action.get("type") == "weapon_select" and selected_unit:
+                    wkey = action["weapon_key"]
+                    selected_unit.selected_weapon = None if selected_unit.selected_weapon == wkey else wkey
                     ui.rebuild_weapon_buttons(selected_unit, sim)
-            elif action.get("type") == "assign_cap" and selected_unit: assigning_mission = "CAP"
-            elif action.get("type") == "clear_mission" and selected_unit:
-                selected_unit.mission = None
-                selected_unit.clear_waypoints()
-                selected_unit.leader_uid = "" 
-            elif action.get("type") == "weapon_select" and selected_unit:
-                wkey = action["weapon_key"]
-                selected_unit.selected_weapon = None if selected_unit.selected_weapon == wkey else wkey
-                ui.rebuild_weapon_buttons(selected_unit, sim)
-            elif action.get("type") == "change_alt" and selected_unit:
-                if selected_unit.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
-                    clamped_alt = max(0.0, min(float(selected_unit.platform.ceiling_ft), selected_unit.target_altitude_ft + action["delta"]))
-                    selected_unit.target_altitude_ft = clamped_alt
+                elif action.get("type") == "change_alt" and selected_unit:
+                    if selected_unit.platform.unit_type in ("fighter", "attacker", "helicopter", "awacs"):
+                        clamped_alt = max(0.0, min(float(selected_unit.platform.ceiling_ft), selected_unit.target_altitude_ft + action["delta"]))
+                        selected_unit.target_altitude_ft = clamped_alt
+                
+                continue
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     placing_type, placing_remaining, assigning_mission, assigning_package_state = None, 0, None, None
+                    assigning_package_tot = 0.0
+                    assigning_package_waypoints.clear()
+                    
+                    if getattr(ui, "_wp_alt_window", None):
+                        ui._wp_alt_window.kill()
+                        ui._wp_alt_window = None
+                        ui._pending_wp_coords = None
+                        
                     if selected_unit:
                         selected_unit.selected = False
                         selected_unit = None
@@ -632,7 +682,7 @@ def main() -> None:
                 continue   
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.pos[1] >= cur_map_h: continue  
+                if ui.is_mouse_over_ui(event.pos): continue  
 
                 if event.button == 1:
                     if placing_type and app_mode == "setup":
@@ -680,20 +730,37 @@ def main() -> None:
                         lat, lon = cam.screen_to_world(*event.pos)
                         pkg_id = f"PKG_{int(sim.game_time)}_{_random.randint(100,999)}"
                         count_launched = 0
+                        
+                        target_tot = sim.game_time + (assigning_package_tot * 60.0) if assigning_package_tot > 0 else 0.0
+                        
                         for uid, state in assigning_package_state.items():
                             if state["included"]:
                                 u = sim.get_unit_by_uid(uid)
                                 if u and u.duty_state == "READY":
                                     u.set_loadout_role(db, state["loadout"])
-                                    u.mission = Mission(f"{pkg_id} {state['role']}", state["role"], lat, lon, 30.0, u.platform.cruise_alt_ft, 0.25, package_id=pkg_id)
+                                    
+                                    unit_tot = target_tot
+                                    if target_tot > 0 and state['role'] == "SEAD":
+                                        unit_tot = max(sim.game_time + 10.0, target_tot - 60.0)
+                                        
+                                    u.mission = Mission(f"{pkg_id} {state['role']}", state["role"], lat, lon, 30.0, u.platform.cruise_alt_ft, 0.25, time_on_target=unit_tot, package_id=pkg_id)
                                     u.duty_state = "ACTIVE"
+                                    u.auto_engage = True  # FIX: Auto-enable engagement for launched package units
                                     u.altitude_ft = u.platform.cruise_alt_ft
                                     u.target_altitude_ft = u.platform.cruise_alt_ft
                                     u.clear_waypoints()
+                                    
+                                    for wlat, wlon, walt in assigning_package_waypoints:
+                                        u.add_waypoint(wlat, wlon, walt)
+                                        
+                                    u.add_waypoint(lat, lon, -1.0)
                                     count_launched += 1
+                                    
                         ui.rebuild_weapon_buttons(selected_unit, sim)
                         sim.log(f"Strike Package '{pkg_id}' launched ({count_launched} aircraft).")
                         assigning_package_state = None
+                        assigning_package_tot = 0.0
+                        assigning_package_waypoints.clear()
                         continue
 
                     hit = _pick_unit(event.pos, cam, sim.units, show_all_enemies=show_all_enemies, app_mode=app_mode)
@@ -703,13 +770,11 @@ def main() -> None:
                         selected_unit.selected = True
                         assigning_mission = None
                         assigning_package_state = None
+                        assigning_package_tot = 0.0
                         ui.rebuild_weapon_buttons(selected_unit, sim)
                     else:
-                        if selected_unit:
-                            selected_unit.selected = False
-                            selected_unit = None
-                            ui.rebuild_weapon_buttons(None, sim)
                         is_dragging = True
+                        drag_start_pos = event.pos
 
                 elif event.button == 3:
                     if app_mode == "setup":
@@ -721,12 +786,17 @@ def main() -> None:
                                 selected_unit = None
                                 ui.rebuild_weapon_buttons(None, sim)
                     elif selected_unit and app_mode == "combat":
-                        if assigning_mission: assigning_mission = None
-                        elif assigning_package_state: assigning_package_state = None
+                        if assigning_mission: 
+                            assigning_mission = None
+                        elif assigning_package_state: 
+                            lat, lon = cam.screen_to_world(*event.pos)
+                            ui.create_waypoint_alt_window(lat, lon)
                         elif selected_unit.duty_state == "READY":
                             lat, lon = cam.screen_to_world(*event.pos)
-                            if not selected_unit.mission: selected_unit.mission = Mission("Configured Mission", "CAP", lat, lon, 30.0, selected_unit.platform.cruise_alt_ft, 0.25)
-                            else: selected_unit.mission.target_lat, selected_unit.mission.target_lon = lat, lon
+                            if not selected_unit.mission: 
+                                selected_unit.mission = Mission("Configured Mission", "CAP", lat, lon, 30.0, selected_unit.platform.cruise_alt_ft, 0.25)
+                            else: 
+                                selected_unit.mission.target_lat, selected_unit.mission.target_lon = lat, lon
                         else:
                             if selected_unit.duty_state == "READY":
                                 selected_unit.duty_state = "ACTIVE"
@@ -735,29 +805,47 @@ def main() -> None:
 
                 elif event.button in (4, 5):
                     mx, my = event.pos
-                    if my > cur_map_h: mx, my = cam.win_w / 2, cur_map_h / 2
                     cam.zoom_by(1 if event.button == 4 else -1, mx, my)
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1: is_dragging = False
+                if ui.is_mouse_over_ui(event.pos):
+                    is_dragging = False
+                    drag_start_pos = None
+                    continue
+                    
+                if event.button == 1: 
+                    if is_dragging and drag_start_pos:
+                        dist = math.hypot(event.pos[0] - drag_start_pos[0], event.pos[1] - drag_start_pos[1])
+                        if dist < 5.0:
+                            if selected_unit:
+                                selected_unit.selected = False
+                                selected_unit = None
+                                ui.rebuild_weapon_buttons(None, sim)
+                    is_dragging = False
+                    drag_start_pos = None
+
             elif event.type == pygame.MOUSEMOTION:
                 if is_dragging: cam.pan(event.rel[0], event.rel[1])
+
             elif event.type == pygame.MOUSEWHEEL:
                 mx, my = pygame.mouse.get_pos()
-                if my > cur_map_h: mx, my = cam.win_w / 2, cur_map_h / 2
-                cam.zoom_by(event.y, mx, my)
+                if not ui.is_mouse_over_ui((mx, my)):
+                    cam.zoom_by(event.y, mx, my)
 
         if app_mode == "combat":
             sim.update(real_delta)
             if selected_unit and not selected_unit.alive:
                 selected_unit = None
                 ui.rebuild_weapon_buttons(None, sim)
+                
             if not game_over_triggered:
                 result = sim.is_game_over()
                 if result:
                     sim.log(f"*** {result.upper()} ***")
                     sim.set_compression(0)
                     game_over_triggered = True
+                    aar_data = sim.generate_aar()
+                    ui.create_aar_window(aar_data)
 
         cursor_type = placing_type
         if assigning_mission: cursor_type = assigning_mission
@@ -767,13 +855,15 @@ def main() -> None:
                             sim.units, sim.missiles,
                             cam.win_w, cam.map_h,
                             blue_contacts=sim.blue_contacts,
+                            explosions=sim.explosions,
                             placing_type=cursor_type,
                             placing_remaining=placing_remaining,
                             mouse_pos=pygame.mouse.get_pos() if cursor_type else None,
                             show_all_enemies=show_all_enemies,
                             show_air_labels=show_air_labels,
                             show_ground_labels=show_ground_labels,
-                            show_radar_rings=show_radar_rings)
+                            show_radar_rings=show_radar_rings,
+                            package_waypoints=assigning_package_waypoints)
 
         ui.update(real_delta, sim, selected_unit, placing_type, placing_remaining, show_all_enemies,
                   blue_contacts=sim.blue_contacts, show_air_labels=show_air_labels, show_ground_labels=show_ground_labels,
